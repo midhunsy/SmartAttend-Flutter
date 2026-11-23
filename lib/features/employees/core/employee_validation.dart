@@ -45,6 +45,14 @@ String? validatePasswordStrength(String password) {
   return null;
 }
 
+String? validateEmployeeAddress(String? address) {
+  if (address == null || address.trim().isEmpty) return null;
+  if (address.trim().length > 500) {
+    return 'Address must be 500 characters or fewer.';
+  }
+  return null;
+}
+
 String? validateEmployeeIdentity({
   required String employeeName,
   required String email,
@@ -71,6 +79,7 @@ String? validateCreateEmployeeFields({
   required String username,
   required String password,
   required String confirmPassword,
+  String? address,
 }) {
   final identity = validateEmployeeIdentity(
     employeeName: employeeName,
@@ -87,6 +96,8 @@ String? validateCreateEmployeeFields({
   }
   final usernameError = validateUsernameFormat(username);
   if (usernameError != null) return usernameError;
+  final addressError = validateEmployeeAddress(address);
+  if (addressError != null) return addressError;
   return validatePasswordStrength(password);
 }
 
@@ -98,6 +109,7 @@ String? validateUpdateEmployeeFields({
   required String employeeRecordId,
   String? reportingManagerId,
   String? hodId,
+  String? address,
 }) {
   final identity = validateEmployeeIdentity(
     employeeName: employeeName,
@@ -109,7 +121,7 @@ String? validateUpdateEmployeeFields({
   if (reportingManagerId == employeeRecordId || hodId == employeeRecordId) {
     return 'An employee cannot report to themselves.';
   }
-  return null;
+  return validateEmployeeAddress(address);
 }
 
 String employmentStatusLabel(String status) {

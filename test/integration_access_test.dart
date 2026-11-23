@@ -31,7 +31,6 @@ void main() {
         '/employees',
         '/organization',
         '/reports',
-        '/security',
       ]) {
         expect(canAccessRoute(path, user), isTrue, reason: '$role $path');
       }
@@ -48,7 +47,6 @@ void main() {
       '/employees',
       '/organization',
       '/reports',
-      '/security',
     ]) {
       expect(canAccessRoute(path, user), isTrue, reason: path);
     }
@@ -59,11 +57,11 @@ void main() {
     expect(canAccessRoute('/approvals', employee), isFalse);
     expect(canAccessRoute('/dashboard', employee), isTrue);
     expect(canAccessRoute('/reports', employee), isTrue);
-    expect(canAccessRoute('/security', employee), isTrue);
+    expect(canAccessRoute('/security', employee), isFalse);
 
     final superAdmin = _user('Super Admin');
     expect(canAccessRoute('/dashboard', superAdmin), isTrue);
-    expect(canAccessRoute('/security', superAdmin), isTrue);
+    expect(canAccessRoute('/security', superAdmin), isFalse);
     expect(canAccessRoute('/reports', superAdmin), isFalse);
     expect(canAccessRoute('/approvals', superAdmin), isFalse);
   });

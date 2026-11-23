@@ -3,9 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_design.dart';
+import '../../../shared/widgets/app_state_widgets.dart';
+import '../core/employee_validation.dart';
 import '../data/employee_repository.dart';
 import '../data/models/employee_models.dart';
-import '../core/employee_validation.dart';
 
 class EmployeeFormResult {
   const EmployeeFormResult({this.created, required this.isCreate});
@@ -32,6 +35,7 @@ class _EmployeeFormDialogState extends ConsumerState<EmployeeFormDialog> {
   late final TextEditingController _name;
   late final TextEditingController _email;
   late final TextEditingController _mobile;
+  late final TextEditingController _address;
   late final TextEditingController _designation;
   late final TextEditingController _joiningDate;
   late final TextEditingController _employeeIdHint;
@@ -67,6 +71,7 @@ class _EmployeeFormDialogState extends ConsumerState<EmployeeFormDialog> {
     _name = TextEditingController(text: employee?.employeeName ?? '');
     _email = TextEditingController(text: employee?.email ?? '');
     _mobile = TextEditingController(text: employee?.mobile ?? '');
+    _address = TextEditingController(text: employee?.address ?? '');
     _designation = TextEditingController(text: employee?.designation ?? '');
     _joiningDate = TextEditingController(
       text: employee?.joiningDate ?? _today(),
@@ -101,6 +106,7 @@ class _EmployeeFormDialogState extends ConsumerState<EmployeeFormDialog> {
     _name.dispose();
     _email.dispose();
     _mobile.dispose();
+    _address.dispose();
     _designation.dispose();
     _joiningDate.dispose();
     _employeeIdHint.dispose();
@@ -115,7 +121,7 @@ class _EmployeeFormDialogState extends ConsumerState<EmployeeFormDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return AlertDialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      insetPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.lg),
       constraints: const BoxConstraints(maxWidth: 820, maxHeight: 900),
       title: Text(
         _isEdit
@@ -135,227 +141,256 @@ class _EmployeeFormDialogState extends ConsumerState<EmployeeFormDialog> {
                     : 'Employee ID is generated automatically and globally unique across SmartAttend.',
                 style: theme.textTheme.bodySmall,
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: AppSpacing.md),
               if (_message.isNotEmpty) ...[
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.errorContainer.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(_message, style: theme.textTheme.bodySmall),
+                AppMessageBanner(
+                  message: _message,
+                  isError: true,
+                  onDismiss: () => setState(() => _message = ''),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: AppSpacing.md),
               ],
               _sectionLabel('01 Employee Details'),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  SizedBox(width: 300, child: _textField('Employee Name', _name)),
-                  SizedBox(width: 300, child: _textField('Email', _email)),
-                  SizedBox(width: 300, child: _textField('Mobile Number', _mobile)),
-                  SizedBox(width: 300, child: _textField('Designation', _designation)),
-                  SizedBox(
-                    width: 260,
-                    child: _dropdown(
-                      label: 'Department',
-                      value: _departmentId,
-                      items: _withSelected(
-                        widget.options.departments
-                            .map((item) => item.departmentId)
-                            .toList(),
-                        _departmentId,
+              const SizedBox(height: AppSpacing.sm),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final fieldWidth = constraints.maxWidth < 540
+                      ? constraints.maxWidth
+                      : (constraints.maxWidth - AppSpacing.md) / 2;
+
+                  return Wrap(
+                    spacing: AppSpacing.md,
+                    runSpacing: AppSpacing.md,
+                    children: [
+                      SizedBox(width: fieldWidth, child: _textField('Employee Name', _name)),
+                      SizedBox(width: fieldWidth, child: _textField('Email', _email)),
+                      SizedBox(width: fieldWidth, child: _textField('Mobile Number', _mobile)),
+                      SizedBox(width: fieldWidth, child: _textField('Designation', _designation)),
+                      SizedBox(
+                        width: constraints.maxWidth,
+                        child: TextField(
+                          controller: _address,
+                          maxLines: 2,
+                          decoration: const InputDecoration(
+                            labelText: 'Address (Optional)',
+                            hintText: 'Complete residential or mailing address',
+                          ),
+                        ),
                       ),
-                      labelFor: _departmentLabel,
-                      onChanged: (value) =>
-                          setState(() => _departmentId = value?.isEmpty == true ? null : value),
-                    ),
-                  ),
-                  SizedBox(
-                    width: 240,
-                    child: _dropdown(
-                      label: 'Role',
-                      value: _roleName,
-                      items: employeeRoles,
-                      labelFor: (value) => value,
-                      onChanged: (value) {
-                        if (value != null) setState(() => _roleName = value);
-                      },
-                    ),
-                  ),
-                  SizedBox(
-                    width: 280,
-                    child: _dropdown(
-                      label: 'Reporting Manager',
-                      value: _reportingManagerId,
-                      items: _withSelected(
-                        widget.options.managers
-                            .map((item) => item.employeeRecordId)
-                            .toList(),
-                        _reportingManagerId,
+                      SizedBox(
+                        width: fieldWidth,
+                        child: _dropdown(
+                          label: 'Department',
+                          value: _departmentId,
+                          items: _withSelected(
+                            widget.options.departments
+                                .map((item) => item.departmentId)
+                                .toList(),
+                            _departmentId,
+                          ),
+                          labelFor: _departmentLabel,
+                          onChanged: (value) =>
+                              setState(() => _departmentId = value?.isEmpty == true ? null : value),
+                        ),
                       ),
-                      labelFor: _managerLabel,
-                      onChanged: (value) => setState(
-                        () => _reportingManagerId = value?.isEmpty == true ? null : value,
+                      SizedBox(
+                        width: fieldWidth,
+                        child: _dropdown(
+                          label: 'Role',
+                          value: _roleName,
+                          items: employeeRoles,
+                          labelFor: (value) => value,
+                          onChanged: (value) {
+                            if (value != null) setState(() => _roleName = value);
+                          },
+                        ),
                       ),
-                    ),
-                  ),
-                  SizedBox(
-                    width: 280,
-                    child: _dropdown(
-                      label: 'HOD',
-                      value: _hodId,
-                      items: _withSelected(
-                        widget.options.managers
-                            .map((item) => item.employeeRecordId)
-                            .toList(),
-                        _hodId,
+                      SizedBox(
+                        width: fieldWidth,
+                        child: _dropdown(
+                          label: 'Reporting Manager',
+                          value: _reportingManagerId,
+                          items: _withSelected(
+                            widget.options.managers
+                                .map((item) => item.employeeRecordId)
+                                .toList(),
+                            _reportingManagerId,
+                          ),
+                          labelFor: _managerLabel,
+                          onChanged: (value) => setState(
+                            () => _reportingManagerId = value?.isEmpty == true ? null : value,
+                          ),
+                        ),
                       ),
-                      labelFor: _managerLabel,
-                      onChanged: (value) =>
-                          setState(() => _hodId = value?.isEmpty == true ? null : value),
-                    ),
-                  ),
-                  SizedBox(
-                    width: 220,
-                    child: _dateField('Joining Date', _joiningDate, enabled: !_isEdit),
-                  ),
-                  SizedBox(
-                    width: 220,
-                    child: _dropdown(
-                      label: 'Employment Type',
-                      value: _employmentType,
-                      items: employmentTypes,
-                      labelFor: (value) => value,
-                      onChanged: (value) {
-                        if (value != null) setState(() => _employmentType = value);
-                      },
-                    ),
-                  ),
-                  SizedBox(
-                    width: 260,
-                    child: _dropdown(
-                      label: 'Office Location',
-                      value: _locationId,
-                      items: _withSelected(
-                        widget.options.locations
-                            .map((item) => item.locationId)
-                            .toList(),
-                        _locationId,
+                      SizedBox(
+                        width: fieldWidth,
+                        child: _dropdown(
+                          label: 'HOD',
+                          value: _hodId,
+                          items: _withSelected(
+                            widget.options.managers
+                                .map((item) => item.employeeRecordId)
+                                .toList(),
+                            _hodId,
+                          ),
+                          labelFor: _managerLabel,
+                          onChanged: (value) =>
+                              setState(() => _hodId = value?.isEmpty == true ? null : value),
+                        ),
                       ),
-                      labelFor: _locationLabel,
-                      onChanged: (value) =>
-                          setState(() => _locationId = value?.isEmpty == true ? null : value),
-                    ),
-                  ),
-                  SizedBox(
-                    width: 260,
-                    child: _dropdown(
-                      label: 'Assigned Shift',
-                      value: _shiftId,
-                      items: _withSelected(
-                        widget.options.shifts.map((item) => item.shiftId).toList(),
-                        _shiftId,
+                      SizedBox(
+                        width: fieldWidth,
+                        child: _dateField('Joining Date', _joiningDate, enabled: !_isEdit),
                       ),
-                      labelFor: _shiftLabel,
-                      onChanged: (value) =>
-                          setState(() => _shiftId = value?.isEmpty == true ? null : value),
-                    ),
-                  ),
-                  SizedBox(
-                    width: 220,
-                    child: _dropdown(
-                      label: 'Employment Status',
-                      value: _employmentStatus,
-                      items: employmentStatuses,
-                      labelFor: employmentStatusLabel,
-                      onChanged: (value) {
-                        if (value != null) setState(() => _employmentStatus = value);
-                      },
-                    ),
-                  ),
-                  SizedBox(
-                    width: 420,
-                    child: TextField(
-                      controller: _profilePicture,
-                      enabled: !_isEdit,
-                      decoration: const InputDecoration(
-                        labelText: 'Profile Picture URL (Optional)',
-                        hintText: 'https://...',
+                      SizedBox(
+                        width: fieldWidth,
+                        child: _dropdown(
+                          label: 'Employment Type',
+                          value: _employmentType,
+                          items: employmentTypes,
+                          labelFor: (value) => value,
+                          onChanged: (value) {
+                            if (value != null) setState(() => _employmentType = value);
+                          },
+                        ),
                       ),
-                    ),
-                  ),
-                ],
+                      SizedBox(
+                        width: fieldWidth,
+                        child: _dropdown(
+                          label: 'Office Location',
+                          value: _locationId,
+                          items: _withSelected(
+                            widget.options.locations
+                                .map((item) => item.locationId)
+                                .toList(),
+                            _locationId,
+                          ),
+                          labelFor: _locationLabel,
+                          onChanged: (value) =>
+                              setState(() => _locationId = value?.isEmpty == true ? null : value),
+                        ),
+                      ),
+                      SizedBox(
+                        width: fieldWidth,
+                        child: _dropdown(
+                          label: 'Assigned Shift',
+                          value: _shiftId,
+                          items: _withSelected(
+                            widget.options.shifts.map((item) => item.shiftId).toList(),
+                            _shiftId,
+                          ),
+                          labelFor: _shiftLabel,
+                          onChanged: (value) =>
+                              setState(() => _shiftId = value?.isEmpty == true ? null : value),
+                        ),
+                      ),
+                      SizedBox(
+                        width: fieldWidth,
+                        child: _dropdown(
+                          label: 'Employment Status',
+                          value: _employmentStatus,
+                          items: employmentStatuses,
+                          labelFor: employmentStatusLabel,
+                          onChanged: (value) {
+                            if (value != null) setState(() => _employmentStatus = value);
+                          },
+                        ),
+                      ),
+                      SizedBox(
+                        width: fieldWidth,
+                        child: TextField(
+                          controller: _profilePicture,
+                          enabled: !_isEdit,
+                          decoration: const InputDecoration(
+                            labelText: 'Profile Picture URL (Optional)',
+                            hintText: 'https://...',
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
               if (!_isEdit) ...[
-                const SizedBox(height: 22),
+                const SizedBox(height: AppSpacing.lg),
                 _sectionLabel('02 Employee Login Credentials'),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  crossAxisAlignment: WrapCrossAlignment.end,
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: _busy ? null : _generatePassword,
-                      icon: const Icon(Icons.password_rounded),
-                      label: const Text('Generate Secure Temporary Password'),
-                    ),
-                    SizedBox(
-                      width: 300,
-                      child: TextField(
-                        controller: _username,
-                        onChanged: _onUsernameChanged,
-                        decoration: InputDecoration(
-                          labelText: 'Global Username (Admin creates)',
-                          helperText: _usernameHelper(),
-                          errorText: _usernameError(),
-                          suffixIcon: _checkingUsername
-                              ? const Padding(
-                                  padding: EdgeInsets.all(12),
-                                  child: SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
-                                  ),
-                                )
-                              : null,
+                const SizedBox(height: AppSpacing.sm),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final fieldWidth = constraints.maxWidth < 540
+                        ? constraints.maxWidth
+                        : (constraints.maxWidth - AppSpacing.md) / 2;
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: _busy ? null : _generatePassword,
+                          icon: const Icon(Icons.password_rounded, size: 18),
+                          label: const Text('Generate Temporary Password'),
                         ),
-                      ),
-                    ),
-                    SizedBox(
-                      width: 300,
-                      child: TextField(
-                        controller: _employeeIdHint,
-                        enabled: false,
-                        decoration: const InputDecoration(
-                          labelText: 'Employee ID (System Generated)',
+                        const SizedBox(height: AppSpacing.md),
+                        Wrap(
+                          spacing: AppSpacing.md,
+                          runSpacing: AppSpacing.md,
+                          children: [
+                            SizedBox(
+                              width: fieldWidth,
+                              child: TextField(
+                                controller: _username,
+                                onChanged: _onUsernameChanged,
+                                decoration: InputDecoration(
+                                  labelText: 'Global Username (Admin creates)',
+                                  helperText: _usernameHelper(),
+                                  errorText: _usernameError(),
+                                  suffixIcon: _checkingUsername
+                                      ? const Padding(
+                                          padding: EdgeInsets.all(12),
+                                          child: SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(strokeWidth: 2),
+                                          ),
+                                        )
+                                      : null,
+                                ),
+                              ),
+                            ),
+                            SizedBox(
+                              width: fieldWidth,
+                              child: TextField(
+                                controller: _employeeIdHint,
+                                enabled: false,
+                                decoration: const InputDecoration(
+                                  labelText: 'Employee ID (System Generated)',
+                                ),
+                              ),
+                            ),
+                            SizedBox(
+                              width: fieldWidth,
+                              child: _textField(
+                                'Temporary Password',
+                                _password,
+                                obscureText: true,
+                                hint: 'Min 8 chars, Aa1',
+                              ),
+                            ),
+                            SizedBox(
+                              width: fieldWidth,
+                              child: _textField(
+                                'Confirm Password',
+                                _confirmPassword,
+                                obscureText: true,
+                                hint: 'Repeat password',
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ),
-                    SizedBox(
-                      width: 260,
-                      child: _textField(
-                        'Temporary Password',
-                        _password,
-                        obscureText: true,
-                        hint: 'Min 8 chars, Aa1',
-                      ),
-                    ),
-                    SizedBox(
-                      width: 260,
-                      child: _textField(
-                        'Confirm Password',
-                        _confirmPassword,
-                        obscureText: true,
-                        hint: 'Repeat password',
-                      ),
-                    ),
-                  ],
+                      ],
+                    );
+                  },
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.sm),
                 CheckboxListTile(
                   contentPadding: EdgeInsets.zero,
                   value: _forcePasswordChange,
@@ -364,6 +399,7 @@ class _EmployeeFormDialogState extends ConsumerState<EmployeeFormDialog> {
                   },
                   title: const Text(
                     'Require employee to change temporary password on first login',
+                    style: TextStyle(fontSize: 13),
                   ),
                 ),
               ],
@@ -382,9 +418,9 @@ class _EmployeeFormDialogState extends ConsumerState<EmployeeFormDialog> {
               ? const SizedBox(
                   width: 16,
                   height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
                 )
-              : const Icon(Icons.save_rounded),
+              : const Icon(Icons.save_rounded, size: 18),
           label: Text(_busy ? 'Saving...' : (_isEdit ? 'Update Employee' : 'Save Employee Account')),
         ),
       ],
@@ -393,11 +429,13 @@ class _EmployeeFormDialogState extends ConsumerState<EmployeeFormDialog> {
 
   Widget _sectionLabel(String text) {
     return Text(
-      text,
-      style: Theme.of(context)
-          .textTheme
-          .labelLarge
-          ?.copyWith(fontWeight: FontWeight.w700, letterSpacing: 0.6),
+      text.toUpperCase(),
+      style: const TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 1.1,
+        color: AppColors.teal,
+      ),
     );
   }
 
@@ -427,7 +465,7 @@ class _EmployeeFormDialogState extends ConsumerState<EmployeeFormDialog> {
         labelText: label,
         suffixIcon: enabled
             ? IconButton(
-                icon: const Icon(Icons.date_range_rounded),
+                icon: const Icon(Icons.date_range_rounded, size: 20),
                 onPressed: () => _pickJoiningDate(),
               )
             : null,
@@ -586,6 +624,7 @@ class _EmployeeFormDialogState extends ConsumerState<EmployeeFormDialog> {
         employeeRecordId: widget.employee!.employeeRecordId,
         reportingManagerId: _reportingManagerId,
         hodId: _hodId,
+        address: _address.text,
       );
       if (validation != null) {
         setState(() => _message = validation);
@@ -600,6 +639,7 @@ class _EmployeeFormDialogState extends ConsumerState<EmployeeFormDialog> {
         username: _username.text,
         password: _password.text,
         confirmPassword: _confirmPassword.text,
+        address: _address.text,
       );
       if (validation != null) {
         setState(() => _message = validation);
@@ -630,6 +670,7 @@ class _EmployeeFormDialogState extends ConsumerState<EmployeeFormDialog> {
             employeeName: _name.text.trim(),
             email: _email.text.trim(),
             mobile: _mobile.text.trim(),
+            address: _address.text.trim().isEmpty ? null : _address.text.trim(),
             departmentId: _departmentId,
             designation: _designation.text.trim(),
             reportingManagerId: _reportingManagerId,
@@ -647,6 +688,7 @@ class _EmployeeFormDialogState extends ConsumerState<EmployeeFormDialog> {
             employeeName: _name.text.trim(),
             email: _email.text.trim(),
             mobile: _mobile.text.trim(),
+            address: _address.text.trim().isEmpty ? null : _address.text.trim(),
             departmentId: _departmentId,
             designation: _designation.text.trim(),
             reportingManagerId: _reportingManagerId,

@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../core/constants/app_colors.dart';
+import '../../core/constants/app_design.dart';
+import 'app_card.dart';
+
 class PlaceholderScreen extends StatelessWidget {
   const PlaceholderScreen({
     super.key,
@@ -15,54 +19,50 @@ class PlaceholderScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 32, 24, 48),
+      padding: const EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.xxl, AppSpacing.xl, AppSpacing.xxxl),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 720),
-          child: Card(
-            surfaceTintColor: Colors.transparent,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(36),
-              child: Column(
-                children: [
-                  Container(
-                    width: 72,
-                    height: 72,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE0F2FE),
-                      borderRadius: BorderRadius.circular(22),
-                    ),
-                    child: Icon(icon, color: const Color(0xFF0369A1), size: 34),
+          constraints: const BoxConstraints(maxWidth: 680),
+          child: AppCard(
+            padding: const EdgeInsets.all(AppSpacing.xxxl),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color: AppColors.infoContainer,
+                    borderRadius: AppRadius.borderXl,
                   ),
-                  const SizedBox(height: 20),
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF0F172A),
-                    ),
+                  child: Icon(icon, color: AppColors.info, size: 36),
+                ),
+                const SizedBox(height: AppSpacing.xl),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary,
+                    letterSpacing: -0.2,
                   ),
-                  const SizedBox(height: 10),
-                  Text(
-                    description,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      height: 1.6,
-                      color: Color(0xFF64748B),
-                    ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  description,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    height: 1.5,
+                    color: AppColors.textSecondary,
                   ),
-                  const SizedBox(height: 18),
-                  const Chip(
-                    avatar: Icon(Icons.construction_outlined, size: 16),
-                    label: Text('Migration pending · no mock data'),
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(height: AppSpacing.xl),
+                const Chip(
+                  avatar: Icon(Icons.construction_outlined, size: 16, color: AppColors.teal),
+                  label: Text('Feature coming soon · No mock data'),
+                ),
+              ],
             ),
           ),
         ),

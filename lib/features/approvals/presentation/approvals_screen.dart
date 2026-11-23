@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_design.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../shared/widgets/app_card.dart';
+import '../../../shared/widgets/app_page_header.dart';
+import '../../../shared/widgets/app_state_widgets.dart';
+import '../../../shared/widgets/app_status_chip.dart';
 import '../../attendance/data/attendance_repository.dart';
 import '../../attendance/data/models/attendance_models.dart';
 import '../../auth/application/auth_controller.dart';
@@ -170,28 +176,25 @@ class _ApprovalsScreenState extends ConsumerState<ApprovalsScreen> {
   Widget build(BuildContext context) {
     final user = ref.watch(authControllerProvider).user;
     if (user == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoadingState(message: 'Verifying approval privileges…');
     }
     if (!user.canApprove) {
       return _accessDenied();
     }
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 40),
+      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.xxxl),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1180),
+          constraints: const BoxConstraints(maxWidth: 1200),
           child: FutureBuilder<_ApprovalBundle>(
             future: _bundleFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 80),
-                  child: Center(child: CircularProgressIndicator()),
-                );
+                return const AppLoadingState(message: 'Loading pending approval workflows…');
               }
               if (snapshot.hasError || !snapshot.hasData) {
-                return _errorState(snapshot.error);
+                return AppErrorState(error: snapshot.error, onRetry: _reload);
               }
               final bundle = snapshot.data!;
               final rows = _rows(bundle);
@@ -207,29 +210,54 @@ class _ApprovalsScreenState extends ConsumerState<ApprovalsScreen> {
                 }
                 return true;
               }).toList();
+
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _pageHeader(user, counts),
-                  const SizedBox(height: 20),
+                  AppPageHeader(
+                    eyebrow: 'Workflow control',
+                    title: 'Approvals & Workflows',
+                    subtitle:
+                        '${user.role} · ${user.companyName ?? user.companyId ?? 'Your company'} · ${counts.total} pending request(s)',
+                    actions: [
+                      OutlinedButton.icon(
+                        onPressed: _busy ? null : _reload,
+                        icon: const Icon(Icons.refresh_rounded, size: 18),
+                        label: const Text('Refresh'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
                   if (_message.isNotEmpty) ...[
-                    _messageBanner(_message),
-                    const SizedBox(height: 16),
+                    AppMessageBanner(
+                      message: _message,
+                      isError: false,
+                      onDismiss: () => setState(() => _message = ''),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
                   ],
                   _filters(rows),
-                  const SizedBox(height: 20),
-                  _panel(
-                    title: 'Approval queue',
+                  const SizedBox(height: AppSpacing.lg),
+                  AppSectionCard(
+                    title: 'Approval Queue',
                     subtitle:
-                        '${visibleRows.length} request(s) · company-wide queues exposed by the SmartAttend API',
+                        '${visibleRows.length} request${visibleRows.length == 1 ? '' : 's'} in view',
+                    icon: Icons.fact_check_rounded,
                     child: visibleRows.isEmpty
-                        ? _emptyState()
-                        : Column(
-                            children: visibleRows
-                                .map(
-                                  (row) => _approvalTile(row, user),
-                                )
-                                .toList(),
+                        ? const AppEmptyState(
+                            icon: Icons.fact_check_outlined,
+                            title: 'No requests in this view',
+                            description: 'Switch status or request type to review other records.',
+                          )
+                        : ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: visibleRows.length,
+                            separatorBuilder: (_, _) => const Divider(height: AppSpacing.xs),
+                            itemBuilder: (context, index) {
+                              final row = visibleRows[index];
+                              return _approvalTile(row, user);
+                            },
                           ),
                   ),
                 ],
@@ -343,107 +371,58 @@ class _ApprovalsScreenState extends ConsumerState<ApprovalsScreen> {
     );
   }
 
-  Widget _pageHeader(AuthUser user, _PendingCounts counts) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'WORKFLOW CONTROL',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.1,
-                  color: Color(0xFF0F766E),
-                ),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'Approvals & Workflows',
-                style: TextStyle(
-                  fontSize: 25,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF0F172A),
-                ),
-              ),
-              const SizedBox(height: 5),
-              Text(
-                '${user.role} · ${user.companyName ?? user.companyId ?? 'Your company'} · ${counts.total} pending request(s)',
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: Color(0xFF64748B),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 16),
-        OutlinedButton.icon(
-          onPressed: _busy ? null : _reload,
-          icon: const Icon(Icons.refresh_rounded, size: 18),
-          label: const Text('Refresh'),
-        ),
-      ],
-    );
-  }
-
   Widget _filters(List<_ApprovalRowData> rows) {
     final statuses = rows.map((row) => row.status).toList();
-    return Card(
-      surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Wrap(
-              spacing: 8,
-              children: [
-                for (final state in <ApprovalState?>[
-                  ApprovalState.pending,
-                  ApprovalState.approved,
-                  ApprovalState.rejected,
-                  null,
-                ])
-                  ChoiceChip(
-                    label: Text(
-                      state == null
-                          ? 'All (${statuses.length})'
-                          : '${approvalStateLabel(state)} (${countApprovalState(statuses, state)})',
-                    ),
-                    selected: _stateFilter == state,
-                    onSelected: (_) => setState(() => _stateFilter = state),
+    return AppCard(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.xs,
+            children: [
+              for (final state in <ApprovalState?>[
+                ApprovalState.pending,
+                ApprovalState.approved,
+                ApprovalState.rejected,
+                null,
+              ])
+                ChoiceChip(
+                  label: Text(
+                    state == null
+                        ? 'All (${statuses.length})'
+                        : '${approvalStateLabel(state)} (${countApprovalState(statuses, state)})',
                   ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              children: [
-                for (final category in <ApprovalCategory?>[
-                  null,
-                  ApprovalCategory.leave,
-                  ApprovalCategory.wfh,
-                  ApprovalCategory.regularization,
-                ])
-                  ChoiceChip(
-                    label: Text(
-                      category == null
-                          ? 'All types'
-                          : approvalCategoryLabel(category),
-                    ),
-                    selected: _categoryFilter == category,
-                    onSelected: (_) =>
-                        setState(() => _categoryFilter = category),
+                  selected: _stateFilter == state,
+                  onSelected: (_) => setState(() => _stateFilter = state),
+                ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.xs,
+            children: [
+              for (final category in <ApprovalCategory?>[
+                null,
+                ApprovalCategory.leave,
+                ApprovalCategory.wfh,
+                ApprovalCategory.regularization,
+              ])
+                ChoiceChip(
+                  label: Text(
+                    category == null
+                        ? 'All categories'
+                        : approvalCategoryLabel(category),
                   ),
-              ],
-            ),
-          ],
-        ),
+                  selected: _categoryFilter == category,
+                  onSelected: (_) =>
+                      setState(() => _categoryFilter = category),
+                ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -451,213 +430,144 @@ class _ApprovalsScreenState extends ConsumerState<ApprovalsScreen> {
   Widget _approvalTile(_ApprovalRowData row, AuthUser user) {
     final state = approvalState(row.status);
     final actionable = user.canApprove && canActOnApproval(row.status);
-    final color = _stateColor(state);
-    return Card(
-      surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        child: ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: CircleAvatar(
-            backgroundColor: color.withValues(alpha: 0.12),
-            child: Icon(row.icon, color: color, size: 19),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 520;
+        final icon = Container(
+          padding: const EdgeInsets.all(AppSpacing.xs + 2),
+          decoration: BoxDecoration(
+            color: AppColors.tealLight,
+            borderRadius: AppRadius.borderSm,
           ),
-          title: Text(
-            row.title,
-            style: const TextStyle(fontWeight: FontWeight.w700),
-          ),
-          subtitle: Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(row.employeeLabel),
-                const SizedBox(height: 2),
-                Text(row.dateLabel),
-                const SizedBox(height: 2),
-                Text(row.summary),
-                const SizedBox(height: 6),
-                Text(
-                  row.tracking,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF64748B),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          trailing: Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Chip(
-                label: Text(approvalStateLabel(state)),
-                visualDensity: VisualDensity.compact,
-                backgroundColor: color.withValues(alpha: 0.12),
-                side: BorderSide(color: color.withValues(alpha: 0.35)),
-              ),
-              if (actionable) ...[
-                IconButton(
-                  tooltip: 'Reject',
-                  onPressed: _busy ? null : () => _decide(row, false),
-                  icon: const Icon(Icons.close_rounded, color: Color(0xFFB91C1C)),
-                ),
-                IconButton(
-                  tooltip: 'Approve',
-                  onPressed: _busy ? null : () => _decide(row, true),
-                  icon: const Icon(Icons.check_rounded, color: Color(0xFF047857)),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _messageBanner(String message) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFECFDF5),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFA7F3D0)),
-      ),
-      child: Text(
-        message,
-        style: const TextStyle(color: Color(0xFF065F46)),
-      ),
-    );
-  }
-
-  Widget _panel({
-    required String title,
-    required String subtitle,
-    required Widget child,
-  }) {
-    return Card(
-      surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
+          child: Icon(row.icon, color: AppColors.teal, size: 20),
+        );
+        final details = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              title,
+              row.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+            ),
+            const SizedBox(height: AppSpacing.xxs),
+            Text(
+              row.employeeLabel,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF0F172A),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
               ),
             ),
-            const SizedBox(height: 4),
             Text(
-              subtitle,
-              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+              row.dateLabel,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
             ),
-            const SizedBox(height: 16),
-            child,
+            Text(
+              row.summary,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+            ),
+            Text(
+              row.tracking,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+            ),
           ],
-        ),
-      ),
-    );
-  }
+        );
+        final actions = Wrap(
+          spacing: AppSpacing.xs,
+          runSpacing: AppSpacing.xs,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            AppStatusChip(label: approvalStateLabel(state), compact: true),
+            if (actionable) ...[
+              IconButton(
+                tooltip: 'Reject',
+                onPressed: _busy ? null : () => _decide(row, false),
+                icon: const Icon(Icons.close_rounded, color: AppColors.error),
+              ),
+              IconButton(
+                tooltip: 'Approve',
+                onPressed: _busy ? null : () => _decide(row, true),
+                icon: const Icon(Icons.check_rounded, color: AppColors.success),
+              ),
+            ],
+          ],
+        );
 
-  Widget _emptyState() {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 32),
-      child: Column(
-        children: [
-          Icon(Icons.fact_check_outlined, size: 36, color: Color(0xFF94A3B8)),
-          SizedBox(height: 10),
-          Text(
-            'No requests in this view',
-            style: TextStyle(fontWeight: FontWeight.w700),
-          ),
-          SizedBox(height: 4),
-          Text(
-            'Switch status or request type to review other records.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-          ),
-        ],
-      ),
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
+          child: isNarrow
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        icon,
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(child: details),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    actions,
+                  ],
+                )
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    icon,
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(child: details),
+                    const SizedBox(width: AppSpacing.sm),
+                    actions,
+                  ],
+                ),
+        );
+      },
     );
   }
 
   Widget _accessDenied() {
     return Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 520),
-        child: Card(
-          surfaceTintColor: Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: const Padding(
-            padding: EdgeInsets.all(32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.lock_outlined, size: 42, color: Colors.orange),
-                SizedBox(height: 12),
-                Text(
-                  'Approver role required',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+        constraints: const BoxConstraints(maxWidth: 480),
+        child: AppCard(
+          padding: const EdgeInsets.all(AppSpacing.xxl),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                decoration: const BoxDecoration(
+                  color: AppColors.warningContainer,
+                  shape: BoxShape.circle,
                 ),
-                SizedBox(height: 8),
-                Text(
-                  'Only Company Admin, HR, HOD, Manager, and Responsible Person roles can review approvals.',
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
+                child: const Icon(Icons.lock_outlined, size: 32, color: AppColors.warning),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              const Text(
+                'Approver Role Required',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              const Text(
+                'Only Company Admin, HR, HOD, Manager, and Responsible Person roles can review approvals.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4),
+              ),
+            ],
           ),
         ),
       ),
     );
-  }
-
-  Widget _errorState(Object? error) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          children: [
-            const Icon(Icons.cloud_off_rounded, size: 42, color: Colors.orange),
-            const SizedBox(height: 12),
-            Text(
-              _messageOf(error ?? 'Approvals unavailable.'),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: _reload,
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Try again'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Color _stateColor(ApprovalState state) {
-    switch (state) {
-      case ApprovalState.pending:
-        return const Color(0xFFB45309);
-      case ApprovalState.approved:
-        return const Color(0xFF047857);
-      case ApprovalState.rejected:
-        return const Color(0xFFB91C1C);
-      case ApprovalState.unknown:
-        return const Color(0xFF475569);
-    }
   }
 
   String _employeeLabel(String? name, String? employeeId) {

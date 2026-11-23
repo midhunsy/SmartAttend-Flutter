@@ -2,7 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_design.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../shared/widgets/app_card.dart';
+import '../../../shared/widgets/app_kpi_card.dart';
+import '../../../shared/widgets/app_page_header.dart';
+import '../../../shared/widgets/app_state_widgets.dart';
+import '../../../shared/widgets/app_status_chip.dart';
 import '../../attendance/core/geo_utils.dart';
 import '../../attendance/data/attendance_repository.dart';
 import '../../attendance/data/models/attendance_models.dart';
@@ -44,20 +51,6 @@ class _ReportsBundle {
   final List<AttendanceData> attendance;
   final LeaveData leaves;
   final WfhData wfh;
-}
-
-class _Stat {
-  const _Stat({
-    required this.label,
-    required this.value,
-    required this.detail,
-    required this.icon,
-  });
-
-  final String label;
-  final String value;
-  final String detail;
-  final IconData icon;
 }
 
 class _ReportsScreenState extends ConsumerState<ReportsScreen> {
@@ -171,194 +164,157 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
   Widget build(BuildContext context) {
     final user = ref.watch(authControllerProvider).user;
     if (user == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoadingState(message: 'Loading report controls…');
     }
     if (user.isSuperAdmin) {
       return _accessDenied();
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1180),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _pageHeader(),
-                  const SizedBox(height: 16),
-                  _controls(user),
-                  if (_message.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    _messageBanner(_message),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ),
-        Expanded(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1180),
-              child: FutureBuilder<_ReportsBundle>(
-                future: _bundleFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (snapshot.hasError || !snapshot.hasData) {
-                    return _errorState(snapshot.error);
-                  }
-                  return _reportsView(snapshot.data!, user);
-                },
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _pageHeader() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Expanded(
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, 0),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1200),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'WORKFORCE ANALYTICS',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.1,
-                  color: Color(0xFF0F766E),
-                ),
+              AppPageHeader(
+                eyebrow: 'Workforce analytics',
+                title: 'Reports & Payroll Analytics',
+                subtitle: 'Live payroll, attendance, leave and WFH data.',
+                actions: [
+                  OutlinedButton.icon(
+                    onPressed: _reload,
+                    icon: const Icon(Icons.refresh_rounded, size: 18),
+                    label: const Text('Reload'),
+                  ),
+                ],
               ),
-              SizedBox(height: 6),
-              Text(
-                'Reports & Analytics',
-                style: TextStyle(
-                  fontSize: 25,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF0F172A),
+              const SizedBox(height: AppSpacing.md),
+              _controls(user),
+              if (_message.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.md),
+                AppMessageBanner(
+                  message: _message,
+                  isError: true,
+                  onDismiss: () => setState(() => _message = ''),
                 ),
-              ),
-              SizedBox(height: 5),
-              Text(
-                'Real tenant data from payroll, attendance, leave, WFH and dashboard APIs.',
-                style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+              ],
+              const SizedBox(height: AppSpacing.lg),
+              Expanded(
+                child: FutureBuilder<_ReportsBundle>(
+                  future: _bundleFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const AppLoadingState(message: 'Calculating payroll days, attendance logs, and leave statistics…');
+                    }
+                    if (snapshot.hasError || !snapshot.hasData) {
+                      return AppErrorState(error: snapshot.error, onRetry: _reload);
+                    }
+                    return _reportsView(snapshot.data!, user);
+                  },
+                ),
               ),
             ],
           ),
         ),
-        const SizedBox(width: 16),
-        OutlinedButton.icon(
-          onPressed: _reload,
-          icon: const Icon(Icons.refresh_rounded, size: 18),
-          label: const Text('Reload'),
-        ),
-      ],
+      ),
     );
   }
 
   Widget _controls(AuthUser user) {
-    return Card(
-      surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            SegmentedButton<_PeriodMode>(
-              segments: const [
-                ButtonSegment(
-                  value: _PeriodMode.month,
-                  label: Text('Monthly'),
-                  icon: Icon(Icons.calendar_month_outlined),
+    return AppCard(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 620;
+          final dateWidth = compact ? constraints.maxWidth : 160.0;
+          final monthWidth = compact ? constraints.maxWidth : 180.0;
+          final runButton = FilledButton.icon(
+            onPressed: _reload,
+            icon: const Icon(Icons.search_rounded, size: 18),
+            label: const Text('Run Report'),
+          );
+          return Wrap(
+            spacing: AppSpacing.md,
+            runSpacing: AppSpacing.md,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              SegmentedButton<_PeriodMode>(
+                segments: const [
+                  ButtonSegment(
+                    value: _PeriodMode.month,
+                    label: Text('Monthly'),
+                    icon: Icon(Icons.calendar_month_outlined, size: 18),
+                  ),
+                  ButtonSegment(
+                    value: _PeriodMode.range,
+                    label: Text('Date Range'),
+                    icon: Icon(Icons.date_range_outlined, size: 18),
+                  ),
+                ],
+                selected: {_periodMode},
+                onSelectionChanged: (values) =>
+                    setState(() => _periodMode = values.first),
+              ),
+              if (_periodMode == _PeriodMode.month)
+                SizedBox(
+                  width: monthWidth,
+                  child: TextField(
+                    controller: _month,
+                    decoration: const InputDecoration(
+                      labelText: 'Month',
+                      hintText: 'YYYY-MM',
+                    ),
+                    onSubmitted: (_) => _reload(),
+                  ),
+                )
+              else ...[
+                SizedBox(
+                  width: dateWidth,
+                  child: TextField(
+                    controller: _startDate,
+                    decoration: const InputDecoration(
+                      labelText: 'Start Date',
+                      hintText: 'YYYY-MM-DD',
+                    ),
+                    onSubmitted: (_) => _reload(),
+                  ),
                 ),
-                ButtonSegment(
-                  value: _PeriodMode.range,
-                  label: Text('Date range'),
-                  icon: Icon(Icons.date_range_outlined),
+                SizedBox(
+                  width: dateWidth,
+                  child: TextField(
+                    controller: _endDate,
+                    decoration: const InputDecoration(
+                      labelText: 'End Date',
+                      hintText: 'YYYY-MM-DD',
+                    ),
+                    onSubmitted: (_) => _reload(),
+                  ),
                 ),
               ],
-              selected: {_periodMode},
-              onSelectionChanged: (values) =>
-                  setState(() => _periodMode = values.first),
-            ),
-            if (_periodMode == _PeriodMode.month)
-              SizedBox(
-                width: 180,
-                child: TextField(
-                  controller: _month,
-                  decoration: const InputDecoration(
-                    labelText: 'Month',
-                    hintText: 'YYYY-MM',
-                    border: OutlineInputBorder(),
-                    isDense: true,
+              if (user.canApprove)
+                SizedBox(
+                  width: monthWidth,
+                  child: DropdownButtonFormField<String>(
+                    initialValue: _scope,
+                    isExpanded: true,
+                    decoration: const InputDecoration(labelText: 'Scope'),
+                    items: const [
+                      DropdownMenuItem(value: 'all', child: Text('All employees')),
+                      DropdownMenuItem(value: 'mine', child: Text('My records')),
+                    ],
+                    onChanged: (value) =>
+                        setState(() => _scope = value ?? 'all'),
                   ),
-                  onSubmitted: (_) => _reload(),
                 ),
-              )
-            else ...[
-              SizedBox(
-                width: 170,
-                child: TextField(
-                  controller: _startDate,
-                  decoration: const InputDecoration(
-                    labelText: 'Start date',
-                    hintText: 'YYYY-MM-DD',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  onSubmitted: (_) => _reload(),
-                ),
-              ),
-              SizedBox(
-                width: 170,
-                child: TextField(
-                  controller: _endDate,
-                  decoration: const InputDecoration(
-                    labelText: 'End date',
-                    hintText: 'YYYY-MM-DD',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  onSubmitted: (_) => _reload(),
-                ),
-              ),
+              if (compact)
+                SizedBox(width: constraints.maxWidth, child: runButton)
+              else
+                runButton,
             ],
-            if (user.canApprove)
-              DropdownButtonFormField<String>(
-                initialValue: _scope,
-                decoration: const InputDecoration(
-                  labelText: 'Attendance scope',
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                ),
-                items: const [
-                  DropdownMenuItem(value: 'all', child: Text('All employees')),
-                  DropdownMenuItem(value: 'mine', child: Text('My records')),
-                ],
-                onChanged: (value) =>
-                    setState(() => _scope = value ?? 'all'),
-              ),
-            FilledButton.icon(
-              onPressed: _reload,
-              icon: const Icon(Icons.search_rounded, size: 18),
-              label: const Text('Run report'),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -381,17 +337,24 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
       length: 3,
       child: Column(
         children: [
-          TabBar(
-            labelColor: const Color(0xFF0F766E),
-            unselectedLabelColor: const Color(0xFF64748B),
-            indicatorColor: const Color(0xFF0F766E),
-            tabs: const [
-              Tab(text: 'Payroll'),
-              Tab(text: 'Attendance'),
-              Tab(text: 'Leave & WFH'),
-            ],
+          Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: AppRadius.borderMd,
+              border: Border.fromBorderSide(BorderSide(color: AppColors.outline)),
+            ),
+            child: const TabBar(
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
+              padding: EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+              tabs: [
+                Tab(text: 'Payroll Summary'),
+                Tab(text: 'Attendance Analytics'),
+                Tab(text: 'Leave & WFH Reports'),
+              ],
+            ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.lg),
           Expanded(
             child: TabBarView(
               children: [
@@ -426,73 +389,94 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
       0,
       (sum, row) => sum + payableDays(row),
     );
+
     return ListView(
-      padding: const EdgeInsets.only(bottom: 32),
+      padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
       children: [
-        _statsGrid([
-          _Stat(
+        AppKpiGrid(items: [
+          AppKpiData(
             label: 'Employees',
             value: '${bundle.payroll.rows.length}',
             detail: bundle.payroll.month,
             icon: Icons.groups_outlined,
+            iconColor: AppColors.navy,
+            iconBgColor: AppColors.surfaceSubtle,
           ),
-          _Stat(
+          AppKpiData(
             label: 'Present Days',
             value: '$present',
             detail: 'status Present / Checked In',
             icon: Icons.how_to_reg_outlined,
+            iconColor: AppColors.emeraldDark,
+            iconBgColor: AppColors.mint,
           ),
-          _Stat(
+          AppKpiData(
             label: 'WFH Days',
             value: '$wfh',
             detail: 'approved WFH attendance',
             icon: Icons.home_work_outlined,
+            iconColor: AppColors.info,
+            iconBgColor: AppColors.infoContainer,
           ),
-          _Stat(
+          AppKpiData(
             label: 'Payable Days',
             value: payable.toStringAsFixed(1),
-            detail: 'client-side payroll formula',
+            detail: 'payroll calculation formula',
             icon: Icons.calculate_outlined,
+            iconColor: AppColors.teal,
+            iconBgColor: AppColors.tealLight,
           ),
         ]),
-        const SizedBox(height: 16),
-        _panel(
-          title: 'Employee-wise payroll summary',
+        const SizedBox(height: AppSpacing.lg),
+        AppSectionCard(
+          title: 'Employee Payroll Summary',
           subtitle:
               '${bundle.payroll.rows.length} employee(s) · period ${bundle.payroll.month}',
+          icon: Icons.payments_outlined,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  SizedBox(
-                    width: 260,
-                    child: TextField(
-                      controller: _search,
-                      decoration: const InputDecoration(
-                        labelText: 'Search employee or department',
-                        prefixIcon: Icon(Icons.search_rounded),
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                      onChanged: (_) => setState(() {}),
-                    ),
-                  ),
-                  FilledButton.tonalIcon(
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final compact = constraints.maxWidth < 520;
+                  final exportButton = FilledButton.tonalIcon(
                     onPressed: _exporting
                         ? null
                         : () => _exportPayroll(bundle.payroll, user),
                     icon: const Icon(Icons.download_rounded, size: 18),
                     label: const Text('Export CSV'),
-                  ),
-                ],
+                  );
+                  return Wrap(
+                    spacing: AppSpacing.md,
+                    runSpacing: AppSpacing.md,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: compact ? constraints.maxWidth : 280.0,
+                        child: TextField(
+                          controller: _search,
+                          decoration: const InputDecoration(
+                            labelText: 'Search employee or department',
+                            prefixIcon: Icon(Icons.search_rounded, size: 20),
+                          ),
+                          onChanged: (_) => setState(() {}),
+                        ),
+                      ),
+                      if (compact)
+                        SizedBox(width: constraints.maxWidth, child: exportButton)
+                      else
+                        exportButton,
+                    ],
+                  );
+                },
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.lg),
               rows.isEmpty
-                  ? _empty('No payroll rows match the current filters.')
+                  ? const AppEmptyState(
+                      icon: Icons.no_sim_outlined,
+                      title: 'No matching payroll rows',
+                      description: 'No payroll records match the search filter.',
+                    )
                   : SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: DataTable(
@@ -518,12 +502,12 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        Text(row.employeeName),
+                                        Text(row.employeeName, style: const TextStyle(fontWeight: FontWeight.w600)),
                                         Text(
                                           row.employeeId,
                                           style: const TextStyle(
                                             fontSize: 11,
-                                            color: Color(0xFF64748B),
+                                            color: AppColors.textMuted,
                                           ),
                                         ),
                                       ],
@@ -540,7 +524,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                                   DataCell(Text('${row.wfhDays}')),
                                   DataCell(Text(_number(row.paidLeaveDays))),
                                   DataCell(Text(_number(row.unpaidLeaveDays))),
-                                  DataCell(Text(_number(payableDays(row)))),
+                                  DataCell(Text(_number(payableDays(row)), style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.teal))),
                                   DataCell(Text(_number(row.totalHours))),
                                 ],
                               ),
@@ -569,126 +553,201 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
       0,
       (sum, record) => sum + record.workingHours,
     );
+
     return ListView(
-      padding: const EdgeInsets.only(bottom: 32),
+      padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
       children: [
-        _statsGrid([
-          _Stat(
+        AppKpiGrid(items: [
+          AppKpiData(
             label: 'Attendance Rows',
             value: '${records.length}',
             detail: '${bundle.months.length} API month(s)',
             icon: Icons.fingerprint_rounded,
+            iconColor: AppColors.teal,
+            iconBgColor: AppColors.tealLight,
           ),
-          _Stat(
+          AppKpiData(
             label: 'Present',
             value: '$present',
             detail: 'Present / Checked In',
             icon: Icons.how_to_reg_outlined,
+            iconColor: AppColors.emeraldDark,
+            iconBgColor: AppColors.mint,
           ),
-          _Stat(
+          AppKpiData(
             label: 'Late / WFH',
             value: '$late / $wfh',
             detail: 'late punches / remote days',
             icon: Icons.schedule_outlined,
+            iconColor: AppColors.warning,
+            iconBgColor: AppColors.warningContainer,
           ),
-          _Stat(
+          AppKpiData(
             label: 'Total Hours',
             value: hours.toStringAsFixed(1),
             detail: 'all attendance statuses',
             icon: Icons.access_time_rounded,
+            iconColor: AppColors.info,
+            iconBgColor: AppColors.infoContainer,
           ),
         ]),
-        const SizedBox(height: 16),
-        Wrap(
-          spacing: 16,
-          runSpacing: 16,
-          children: [
-            SizedBox(
-              width: 420,
-              child: _panel(
-                title: 'Department headcount',
-                subtitle: 'Live department counts from /api/dashboard',
-                child: bundle.dashboard.deptBreakdown.isEmpty
-                    ? _empty('No departments returned.')
-                    : Column(
-                        children: bundle.dashboard.deptBreakdown
-                            .map(
-                              (item) => ListTile(
-                                contentPadding: EdgeInsets.zero,
-                                title: Text(item.department),
-                                trailing: Chip(label: Text('${item.count}')),
-                              ),
-                            )
-                            .toList(),
-                      ),
-              ),
-            ),
-            SizedBox(
-              width: 420,
-              child: _panel(
-                title: 'Daily attendance',
-                subtitle: 'Grouped from raw attendance records',
-                child: daily.isEmpty
-                    ? _empty('No attendance rows in this period.')
-                    : Column(
-                        children: daily
-                            .map(
-                              (row) => ListTile(
-                                contentPadding: EdgeInsets.zero,
-                                title: Text(row.date),
-                                subtitle: Text(
-                                  '${row.presentCount} present · ${row.lateCount} late · ${row.wfhCount} WFH',
-                                ),
-                                trailing: Text(
-                                  '${row.totalHours.toStringAsFixed(1)}h',
-                                ),
-                              ),
-                            )
-                            .toList(),
-                      ),
-              ),
-            ),
-          ],
+        const SizedBox(height: AppSpacing.lg),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isTwoColumn = constraints.maxWidth >= 840;
+            if (isTwoColumn) {
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: AppSectionCard(
+                      title: 'Department Headcount',
+                      subtitle: 'Department headcount for this period',
+                      icon: Icons.domain_outlined,
+                      child: _departmentBreakdownList(bundle.dashboard.deptBreakdown),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.lg),
+                  Expanded(
+                    child: AppSectionCard(
+                      title: 'Daily Attendance Summary',
+                      subtitle: 'Grouped from raw attendance records',
+                      icon: Icons.today_rounded,
+                      child: _dailyAttendanceList(daily),
+                    ),
+                  ),
+                ],
+              );
+            }
+            return Column(
+              children: [
+                AppSectionCard(
+                  title: 'Department Headcount',
+                  subtitle: 'Department headcount for this period',
+                  icon: Icons.domain_outlined,
+                  child: _departmentBreakdownList(bundle.dashboard.deptBreakdown),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                AppSectionCard(
+                  title: 'Daily Attendance Summary',
+                  subtitle: 'Grouped from raw attendance records',
+                  icon: Icons.today_rounded,
+                  child: _dailyAttendanceList(daily),
+                ),
+              ],
+            );
+          },
         ),
-        const SizedBox(height: 16),
-        _panel(
-          title: 'Employee-wise attendance',
+        const SizedBox(height: AppSpacing.lg),
+        AppSectionCard(
+          title: 'Employee-wise Attendance',
           subtitle: 'Grouped from the same attendance rows used by the daily view',
+          icon: Icons.badge_outlined,
           child: employees.isEmpty
-              ? _empty('No employee rows in this period.')
-              : Column(
-                  children: employees
-                      .map(
-                        (row) => _summaryTile(
-                          icon: Icons.badge_outlined,
-                          title: row.label,
-                          subtitle: row.subtitle,
-                          row: row,
-                        ),
-                      )
-                      .toList(),
+              ? const AppEmptyState(
+                  icon: Icons.badge_outlined,
+                  title: 'No employee attendance rows',
+                  description: 'No attendance records found for this period.',
+                )
+              : ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: employees.length,
+                  separatorBuilder: (_, _) => const Divider(height: AppSpacing.xs),
+                  itemBuilder: (context, index) {
+                    final row = employees[index];
+                    return _summaryTile(
+                      icon: Icons.badge_outlined,
+                      title: row.label,
+                      subtitle: row.subtitle,
+                      row: row,
+                    );
+                  },
                 ),
         ),
-        const SizedBox(height: 16),
-        _panel(
-          title: 'Department-wise attendance',
+        const SizedBox(height: AppSpacing.lg),
+        AppSectionCard(
+          title: 'Department-wise Attendance',
           subtitle: 'Attendance metrics grouped by department name on each record',
+          icon: Icons.domain_outlined,
           child: departments.isEmpty
-              ? _empty('No department rows in this period.')
-              : Column(
-                  children: departments
-                      .map(
-                        (row) => _summaryTile(
-                          icon: Icons.domain_outlined,
-                          title: row.label,
-                          subtitle: row.subtitle,
-                          row: row,
-                        ),
-                      )
-                      .toList(),
+              ? const AppEmptyState(
+                  icon: Icons.domain_outlined,
+                  title: 'No department attendance rows',
+                  description: 'No department attendance records found for this period.',
+                )
+              : ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: departments.length,
+                  separatorBuilder: (_, _) => const Divider(height: AppSpacing.xs),
+                  itemBuilder: (context, index) {
+                    final row = departments[index];
+                    return _summaryTile(
+                      icon: Icons.domain_outlined,
+                      title: row.label,
+                      subtitle: row.subtitle,
+                      row: row,
+                    );
+                  },
                 ),
         ),
       ],
+    );
+  }
+
+  Widget _departmentBreakdownList(List<DepartmentCount> deptBreakdown) {
+    if (deptBreakdown.isEmpty) {
+      return const AppEmptyState(
+        icon: Icons.domain_outlined,
+        title: 'No departments returned',
+        description: 'No department breakdown returned.',
+      );
+    }
+    return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: deptBreakdown.length,
+      separatorBuilder: (_, _) => const Divider(height: AppSpacing.xs),
+      itemBuilder: (context, index) {
+        final item = deptBreakdown[index];
+        return ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(item.department, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+          trailing: AppStatusChip(label: '${item.count} employees', compact: true),
+        );
+      },
+    );
+  }
+
+  Widget _dailyAttendanceList(List<DailyAttendanceRow> daily) {
+    if (daily.isEmpty) {
+      return const AppEmptyState(
+        icon: Icons.today_outlined,
+        title: 'No daily attendance',
+        description: 'No attendance rows recorded in this period.',
+      );
+    }
+    return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: daily.length,
+      separatorBuilder: (_, _) => const Divider(height: AppSpacing.xs),
+      itemBuilder: (context, index) {
+        final row = daily[index];
+        return ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(row.date, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+          subtitle: Text(
+            '${row.presentCount} present · ${row.lateCount} late · ${row.wfhCount} WFH',
+            style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+          ),
+          trailing: Text(
+            '${row.totalHours.toStringAsFixed(1)}h',
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.teal),
+          ),
+        );
+      },
     );
   }
 
@@ -703,98 +762,159 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
     final recentWfh = bundle.wfh.requests
         .where((item) => bundle.range.contains(item.wfhDate))
         .toList();
+
     return ListView(
-      padding: const EdgeInsets.only(bottom: 32),
+      padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
       children: [
-        _statsGrid([
-          _Stat(
+        AppKpiGrid(items: [
+          AppKpiData(
             label: 'Leave Requests',
             value: '${leave.total}',
             detail: '${leave.approved} approved · ${leave.pending} pending',
             icon: Icons.event_available_outlined,
+            iconColor: AppColors.teal,
+            iconBgColor: AppColors.tealLight,
           ),
-          _Stat(
+          AppKpiData(
             label: 'Paid / LOP',
             value: '${_number(leave.paidDays)} / ${_number(leave.unpaidDays)}',
             detail: 'approved days only',
             icon: Icons.attach_money_outlined,
+            iconColor: AppColors.emeraldDark,
+            iconBgColor: AppColors.mint,
           ),
-          _Stat(
+          AppKpiData(
             label: 'WFH Requests',
             value: '${wfh.total}',
             detail: '${wfh.approved} approved · ${wfh.pending} pending',
             icon: Icons.home_work_outlined,
+            iconColor: AppColors.info,
+            iconBgColor: AppColors.infoContainer,
           ),
-          _Stat(
-            label: 'Rejected',
+          AppKpiData(
+            label: 'Rejected Requests',
             value: '${leave.rejected + wfh.rejected}',
             detail: 'leave and WFH combined',
             icon: Icons.cancel_outlined,
+            iconColor: AppColors.error,
+            iconBgColor: AppColors.errorContainer,
           ),
         ]),
-        const SizedBox(height: 16),
-        _panel(
-          title: 'Leave types',
-          subtitle: 'Counts derived from /api/leaves in the selected period',
+        const SizedBox(height: AppSpacing.lg),
+        AppSectionCard(
+          title: 'Leave Categories Breakdown',
+          subtitle: 'Requests grouped by leave type',
+          icon: Icons.category_outlined,
           child: leave.byType.isEmpty
-              ? _empty('No leave applications in this period.')
+              ? const AppEmptyState(
+                  icon: Icons.category_outlined,
+                  title: 'No leave categories',
+                  description: 'No leave applications found in this period.',
+                )
               : Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
                   children: leave.byType.entries
                       .map(
                         (entry) => Chip(
-                          label: Text('${entry.key} · ${entry.value}'),
+                          label: Text('${entry.key}: ${entry.value}'),
                         ),
                       )
                       .toList(),
                 ),
         ),
-        const SizedBox(height: 16),
-        _panel(
-          title: 'Leave applications',
+        const SizedBox(height: AppSpacing.lg),
+        AppSectionCard(
+          title: 'Leave Applications',
           subtitle: '${recentLeaves.length} request(s)',
+          icon: Icons.event_note_outlined,
           child: recentLeaves.isEmpty
-              ? _empty('No leave applications in this period.')
-              : Column(
-                  children: recentLeaves
-                      .map(
-                        (item) => ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(
-                            '${item.employeeName ?? item.employeeId ?? 'Employee'} · ${item.leaveType}',
-                          ),
-                          subtitle: Text(
-                            '${item.startDate}${item.startDate == item.endDate ? '' : ' → ${item.endDate}'} · ${item.reason}',
-                          ),
-                          trailing: Chip(label: Text(item.status)),
-                        ),
-                      )
-                      .toList(),
+              ? const AppEmptyState(
+                  icon: Icons.event_note_outlined,
+                  title: 'No leave applications',
+                  description: 'No leave applications in this period.',
+                )
+              : ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: recentLeaves.length,
+                  separatorBuilder: (_, _) => const Divider(height: AppSpacing.xs),
+                  itemBuilder: (context, index) {
+                    final item = recentLeaves[index];
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(
+                        '${item.employeeName ?? item.employeeId ?? 'Employee'} · ${item.leaveType}',
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                      ),
+                      subtitle: Text(
+                        '${item.startDate}${item.startDate == item.endDate ? '' : ' → ${item.endDate}'} · ${item.reason}',
+                        style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                      ),
+                      trailing: AppStatusChip(label: item.status, compact: true),
+                    );
+                  },
                 ),
         ),
-        const SizedBox(height: 16),
-        _panel(
-          title: 'Work From Home requests',
+        const SizedBox(height: AppSpacing.lg),
+        AppSectionCard(
+          title: 'Work From Home Requests',
           subtitle: '${recentWfh.length} request(s)',
+          icon: Icons.home_work_outlined,
           child: recentWfh.isEmpty
-              ? _empty('No WFH requests in this period.')
-              : Column(
-                  children: recentWfh
-                      .map(
-                        (item) => ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(
-                            '${item.employeeName ?? item.employeeId ?? 'Employee'} · ${item.wfhDate}',
-                          ),
-                          subtitle: Text(item.reason),
-                          trailing: Chip(label: Text(item.status)),
-                        ),
-                      )
-                      .toList(),
+              ? const AppEmptyState(
+                  icon: Icons.home_work_outlined,
+                  title: 'No WFH requests',
+                  description: 'No WFH requests in this period.',
+                )
+              : ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: recentWfh.length,
+                  separatorBuilder: (_, _) => const Divider(height: AppSpacing.xs),
+                  itemBuilder: (context, index) {
+                    final item = recentWfh[index];
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(
+                        '${item.employeeName ?? item.employeeId ?? 'Employee'} · ${item.wfhDate}',
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                      ),
+                      subtitle: Text(item.reason, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                      trailing: AppStatusChip(label: item.status, compact: true),
+                    );
+                  },
                 ),
         ),
       ],
+    );
+  }
+
+  Widget _summaryTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required AttendanceReportRow row,
+  }) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Container(
+        padding: const EdgeInsets.all(AppSpacing.xs + 2),
+        decoration: BoxDecoration(
+          color: AppColors.tealLight,
+          borderRadius: AppRadius.borderSm,
+        ),
+        child: Icon(icon, color: AppColors.teal, size: 20),
+      ),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+      subtitle: Text(
+        '$subtitle\nPresent ${row.presentDays} · Late ${row.lateDays} · WFH ${row.wfhDays} · Absent ${row.absentDays}',
+        style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+      ),
+      trailing: Text(
+        '${row.totalHours.toStringAsFixed(1)}h',
+        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: AppColors.textPrimary),
+      ),
     );
   }
 
@@ -807,46 +927,57 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Payroll CSV'),
+        title: const Text('Payroll CSV Export'),
         content: SizedBox(
-          width: 520,
-          height: 320,
-          child: SelectableText(csv),
+          width: double.maxFinite,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520, maxHeight: 320),
+            child: SingleChildScrollView(
+              child: SelectableText(csv),
+            ),
+          ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Close'),
-          ),
-          TextButton.icon(
-            icon: const Icon(Icons.copy_all_outlined),
-            label: const Text('Copy'),
-            onPressed: () async {
-              await Clipboard.setData(ClipboardData(text: csv));
-              if (!dialogContext.mounted) return;
-              Navigator.of(dialogContext).pop();
-              messenger.showSnackBar(
-                const SnackBar(content: Text('CSV copied to clipboard.')),
-              );
-            },
-          ),
-          FilledButton.icon(
-            icon: const Icon(Icons.download_rounded),
-            label: const Text('Download'),
-            onPressed: () async {
-              try {
-                await downloadCsvText(filename: filename, content: csv);
-                if (!dialogContext.mounted) return;
-                Navigator.of(dialogContext).pop();
-                messenger.showSnackBar(
-                  SnackBar(content: Text('Saved $filename')),
-                );
-              } catch (error) {
-                messenger.showSnackBar(
-                  SnackBar(content: Text(_messageOf(error))),
-                );
-              }
-            },
+          Wrap(
+            alignment: WrapAlignment.end,
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.xs,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Close'),
+              ),
+              TextButton.icon(
+                icon: const Icon(Icons.copy_all_outlined, size: 18),
+                label: const Text('Copy CSV'),
+                onPressed: () async {
+                  await Clipboard.setData(ClipboardData(text: csv));
+                  if (!dialogContext.mounted) return;
+                  Navigator.of(dialogContext).pop();
+                  messenger.showSnackBar(
+                    const SnackBar(content: Text('CSV copied to clipboard.')),
+                  );
+                },
+              ),
+              FilledButton.icon(
+                icon: const Icon(Icons.download_rounded, size: 18),
+                label: const Text('Download CSV'),
+                onPressed: () async {
+                  try {
+                    await downloadCsvText(filename: filename, content: csv);
+                    if (!dialogContext.mounted) return;
+                    Navigator.of(dialogContext).pop();
+                    messenger.showSnackBar(
+                      SnackBar(content: Text('Saved $filename')),
+                    );
+                  } catch (error) {
+                    messenger.showSnackBar(
+                      SnackBar(content: Text(_messageOf(error))),
+                    );
+                  }
+                },
+              ),
+            ],
           ),
         ],
       ),
@@ -855,213 +986,59 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
     setState(() => _exporting = false);
   }
 
-  Widget _statsGrid(List<_Stat> stats) {
-    return Wrap(
-      spacing: 14,
-      runSpacing: 14,
-      children: stats
-          .map(
-            (stat) => SizedBox(
-              width: 250,
-              child: Card(
-                surfaceTintColor: Colors.transparent,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE0F2FE),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(stat.icon, color: const Color(0xFF0369A1)),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              stat.label.toUpperCase(),
-                              style: const TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFF64748B),
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              stat.value,
-                              style: const TextStyle(
-                                fontSize: 19,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFF0F172A),
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              stat.detail,
-                              style: const TextStyle(
-                                fontSize: 10,
-                                color: Color(0xFF64748B),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          )
-          .toList(),
-    );
-  }
-
-  Widget _panel({
-    required String title,
-    required String subtitle,
-    required Widget child,
-  }) {
-    return Card(
-      surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF0F172A),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-            ),
-            const SizedBox(height: 16),
-            child,
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _summaryTile({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required AttendanceReportRow row,
-  }) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: CircleAvatar(
-        backgroundColor: const Color(0xFFE0F2FE),
-        child: Icon(icon, color: const Color(0xFF0369A1), size: 18),
-      ),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-      subtitle: Text(
-        '$subtitle · present ${row.presentDays} · late ${row.lateDays} · half ${row.halfDays} · WFH ${row.wfhDays} · ${row.totalHours.toStringAsFixed(1)}h',
-      ),
-      trailing: Chip(label: Text('${row.recordCount} rows')),
-    );
-  }
-
-  Widget _empty(String message) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 24),
-      child: Column(
-        children: [
-          const Icon(Icons.bar_chart_outlined, size: 34, color: Color(0xFF94A3B8)),
-          const SizedBox(height: 10),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _messageBanner(String message) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFEF3C7),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFFDE68A)),
-      ),
-      child: Text(message, style: const TextStyle(color: Color(0xFF92400E))),
-    );
-  }
-
-  Widget _errorState(Object? error) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 60),
-      child: Column(
-        children: [
-          const Icon(Icons.cloud_off_rounded, size: 42, color: Colors.orange),
-          const SizedBox(height: 12),
-          Text(
-            _messageOf(error ?? 'Reports unavailable.'),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed: _reload,
-            icon: const Icon(Icons.refresh_rounded),
-            label: const Text('Try again'),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _accessDenied() {
     return Center(
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Text(
-            'Reports require an authenticated company account.',
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontWeight: FontWeight.w700),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 480),
+        child: AppCard(
+          padding: const EdgeInsets.all(AppSpacing.xxl),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                decoration: const BoxDecoration(
+                  color: AppColors.warningContainer,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.lock_outlined, size: 32, color: AppColors.warning),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              const Text(
+                'Tenant Workspace Required',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              const Text(
+                'Super Admin accounts monitor platform metrics from the Super Admin Console. Switch to a tenant account to run company reports.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  int _sumInt<T>(Iterable<T> values, int Function(T) selector) {
-    return values.fold<int>(0, (sum, value) => sum + selector(value));
+  int _sumInt<T>(List<T> list, int Function(T) mapper) {
+    return list.fold<int>(0, (sum, item) => sum + mapper(item));
   }
 
   bool _isPresent(AttendanceRecord record) {
-    return record.status == 'Present' || record.status == 'Checked In';
+    final status = record.status.toLowerCase();
+    return status == 'present' || status == 'checked in';
   }
 
   String _number(double value) {
     return value == value.roundToDouble()
         ? value.toStringAsFixed(0)
-        : value.toStringAsFixed(2);
+        : value.toStringAsFixed(1);
   }
 
   String _messageOf(Object error) {
     return error is ApiException
         ? error.message
-        : error.toString().replaceFirst('ArgumentError: ', '');
+        : 'Unable to load report data from the SmartAttend API.';
   }
 }

@@ -9,6 +9,7 @@ class EmployeeRecord {
     required this.employeeName,
     required this.email,
     required this.mobile,
+    this.address,
     this.departmentId,
     this.departmentName,
     required this.designation,
@@ -38,6 +39,7 @@ class EmployeeRecord {
   final String employeeName;
   final String email;
   final String mobile;
+  final String? address;
   final String? departmentId;
   final String? departmentName;
   final String designation;
@@ -65,6 +67,7 @@ class EmployeeRecord {
   String get departmentLabel => departmentName ?? 'Unassigned';
   String get locationLabel => locationName ?? 'Any Location';
   String get shiftLabel => shiftName ?? 'Default Shift';
+  String get addressLabel => (address ?? '').trim().isEmpty ? 'Not provided' : address!.trim();
 
   factory EmployeeRecord.fromJson(Map<String, dynamic> json) {
     return EmployeeRecord(
@@ -75,6 +78,7 @@ class EmployeeRecord {
       employeeName: asString(json['employee_name'], 'Employee'),
       email: asString(json['email']),
       mobile: asString(json['mobile']),
+      address: asNullableString(json['address']),
       departmentId: asNullableString(json['department_id']),
       departmentName: asNullableString(json['department_name']),
       designation: asString(json['designation']),
@@ -316,6 +320,7 @@ class CreateEmployeePayload {
     required this.employeeName,
     required this.email,
     required this.mobile,
+    this.address,
     this.departmentId,
     required this.designation,
     this.reportingManagerId,
@@ -336,6 +341,7 @@ class CreateEmployeePayload {
   final String employeeName;
   final String email;
   final String mobile;
+  final String? address;
   final String? departmentId;
   final String designation;
   final String? reportingManagerId;
@@ -357,6 +363,7 @@ class CreateEmployeePayload {
       'employeeName': employeeName,
       'email': email,
       'mobile': mobile,
+      'address': address ?? '',
       'departmentId': departmentId ?? '',
       'designation': designation,
       'reportingManagerId': reportingManagerId ?? '',
@@ -381,6 +388,7 @@ class UpdateEmployeePayload {
     required this.employeeName,
     required this.email,
     required this.mobile,
+    this.address,
     this.departmentId,
     required this.designation,
     this.reportingManagerId,
@@ -395,6 +403,7 @@ class UpdateEmployeePayload {
   final String employeeName;
   final String email;
   final String mobile;
+  final String? address;
   final String? departmentId;
   final String designation;
   final String? reportingManagerId;
@@ -410,6 +419,7 @@ class UpdateEmployeePayload {
       'employeeName': employeeName,
       'email': email,
       'mobile': mobile,
+      'address': address ?? '',
       'departmentId': departmentId ?? '',
       'designation': designation,
       'reportingManagerId': reportingManagerId,

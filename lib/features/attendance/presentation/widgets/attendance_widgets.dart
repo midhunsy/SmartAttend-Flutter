@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../../core/geo_utils.dart';
+import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_design.dart';
+import '../../../../shared/widgets/app_card.dart';
+import '../../../../shared/widgets/app_state_widgets.dart';
+import '../../../../shared/widgets/app_status_chip.dart';
 
 class SectionCard extends StatelessWidget {
   const SectionCard({
@@ -20,45 +24,12 @@ class SectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (icon != null) ...[
-                  Icon(icon, size: 20, color: theme.colorScheme.primary),
-                  const SizedBox(width: 10),
-                ],
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(title, style: theme.textTheme.titleMedium),
-                      if (subtitle case final value?) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          value,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.textTheme.bodySmall?.color?.withValues(alpha:0.75),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                ?action,
-              ],
-            ),
-            const SizedBox(height: 18),
-            child,
-          ],
-        ),
-      ),
+    return AppSectionCard(
+      title: title,
+      subtitle: subtitle,
+      icon: icon,
+      action: action,
+      child: child,
     );
   }
 }
@@ -70,42 +41,105 @@ class InfoTile extends StatelessWidget {
     required this.value,
     this.mono = false,
     this.valueColor,
+    this.minWidth = 0,
+    this.maxWidth,
+    this.maxLines = 2,
   });
 
   final String label;
   final String value;
   final bool mono;
   final Color? valueColor;
+  final double minWidth;
+  final double? maxWidth;
+  final int maxLines;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.all(12),
+      constraints: BoxConstraints(
+        minWidth: minWidth,
+        maxWidth: maxWidth ?? double.infinity,
+      ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm + 2,
+      ),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha:0.35),
-        borderRadius: BorderRadius.circular(12),
+        color: AppColors.surfaceSubtle,
+        borderRadius: AppRadius.borderSm,
+        border: Border.all(color: AppColors.outline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             label.toUpperCase(),
-            style: theme.textTheme.labelSmall?.copyWith(
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
               letterSpacing: 0.6,
-              color: theme.textTheme.bodySmall?.color,
+              color: AppColors.textMuted,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: AppSpacing.xxs),
           Text(
             value,
-            style: (mono
-                    ? const TextStyle(fontFamily: 'monospace')
-                    : theme.textTheme.bodyMedium)
-                ?.copyWith(color: valueColor),
+            maxLines: maxLines,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              fontFamily: mono ? 'monospace' : null,
+              color: valueColor ?? AppColors.textPrimary,
+            ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class InfoTileGrid extends StatelessWidget {
+  const InfoTileGrid({
+    super.key,
+    required this.children,
+    this.minTileWidth = 150,
+  });
+
+  final List<Widget> children;
+  final double minTileWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    if (children.isEmpty) return const SizedBox.shrink();
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableWidth = constraints.hasBoundedWidth
+            ? constraints.maxWidth
+            : minTileWidth * children.length;
+        var columns =
+            ((availableWidth + AppSpacing.md) / (minTileWidth + AppSpacing.md))
+                .floor();
+        if (columns < 1) columns = 1;
+        if (columns > children.length) columns = children.length;
+
+        final tileWidth =
+            (availableWidth - (columns - 1) * AppSpacing.md) / columns;
+        return Wrap(
+          spacing: AppSpacing.md,
+          runSpacing: AppSpacing.md,
+          children: children
+              .map(
+                (child) => SizedBox(width: tileWidth, child: child),
+              )
+              .toList(),
+        );
+      },
     );
   }
 }
@@ -117,29 +151,7 @@ class StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final tone = toneFromStatus(label);
-    final colors = switch (tone) {
-      'success' => (Colors.green.shade700, Colors.green.shade50),
-      'warning' => (Colors.orange.shade800, Colors.orange.shade50),
-      'danger' => (Colors.red.shade700, Colors.red.shade50),
-      'info' => (theme.colorScheme.primary, theme.colorScheme.primaryContainer),
-      _ => (theme.colorScheme.onSurfaceVariant, theme.colorScheme.surfaceContainerHighest),
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: colors.$2,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: theme.textTheme.labelSmall?.copyWith(
-          color: colors.$1,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
+    return AppStatusChip(label: label, compact: true);
   }
 }
 
@@ -157,22 +169,10 @@ class EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 28),
-      child: Column(
-        children: [
-          Icon(icon, size: 38, color: theme.colorScheme.outline),
-          const SizedBox(height: 10),
-          Text(title, style: theme.textTheme.titleSmall),
-          const SizedBox(height: 6),
-          Text(
-            description,
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodySmall,
-          ),
-        ],
-      ),
+    return AppEmptyState(
+      title: title,
+      description: description,
+      icon: icon,
     );
   }
 }
@@ -189,28 +189,6 @@ class MessageBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (message.isEmpty) return const SizedBox.shrink();
-    final theme = Theme.of(context);
-    final color = isError ? theme.colorScheme.error : Colors.green.shade700;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha:0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha:0.35)),
-      ),
-      child: Row(
-        children: [
-          Icon(isError ? Icons.error_outline : Icons.check_circle_outline, color: color, size: 18),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              message,
-              style: theme.textTheme.bodySmall?.copyWith(color: color),
-            ),
-          ),
-        ],
-      ),
-    );
+    return AppMessageBanner(message: message, isError: isError);
   }
 }

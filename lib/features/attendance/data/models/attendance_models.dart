@@ -75,6 +75,7 @@ class ShiftInfo {
     required this.endTime,
     required this.graceMinutes,
     required this.breakMinutes,
+    required this.workingHours,
   });
 
   final String shiftId;
@@ -83,8 +84,19 @@ class ShiftInfo {
   final String endTime;
   final int graceMinutes;
   final int breakMinutes;
+  final double workingHours;
+
+  String get workingHoursLabel {
+    final rounded = workingHours.toStringAsFixed(2);
+    return rounded.endsWith('.00')
+        ? rounded.substring(0, rounded.length - 3)
+        : rounded.endsWith('0')
+            ? rounded.substring(0, rounded.length - 1)
+            : rounded;
+  }
 
   factory ShiftInfo.fromJson(Map<String, dynamic> json) {
+    final workingHours = asDouble(json['working_hours']);
     return ShiftInfo(
       shiftId: asString(json['shift_id']),
       name: asString(json['name']),
@@ -92,6 +104,36 @@ class ShiftInfo {
       endTime: asString(json['end_time'], '18:00'),
       graceMinutes: asInt(json['grace_minutes']),
       breakMinutes: asInt(json['break_minutes']),
+      workingHours: workingHours > 0 ? workingHours : 8,
+    );
+  }
+}
+
+class AttendanceBreakEvent {
+  const AttendanceBreakEvent({
+    required this.breakId,
+    required this.breakType,
+    required this.breakStart,
+    required this.breakEnd,
+    required this.durationMinutes,
+    required this.compliance,
+  });
+
+  final String breakId;
+  final String breakType;
+  final String breakStart;
+  final String breakEnd;
+  final int durationMinutes;
+  final String compliance;
+
+  factory AttendanceBreakEvent.fromJson(Map<String, dynamic> json) {
+    return AttendanceBreakEvent(
+      breakId: asString(json['break_id']),
+      breakType: asString(json['break_type']),
+      breakStart: asString(json['break_start']),
+      breakEnd: asString(json['break_end']),
+      durationMinutes: asInt(json['duration_minutes']),
+      compliance: asString(json['compliance']),
     );
   }
 }
@@ -123,6 +165,14 @@ class AttendanceRecord {
     this.checkOutCapturedAt,
     required this.breakMinutes,
     this.activeBreakStart,
+    this.expectedWorkingHours,
+    this.effectiveShiftDate,
+    this.shiftStartTime,
+    this.shiftEndTime,
+    this.breakPolicy,
+    this.breakCompliance,
+    this.breakCompletedMinutes,
+    this.breakEvents = const [],
     required this.workingHours,
     required this.isLate,
     required this.lateMinutes,
@@ -160,6 +210,14 @@ class AttendanceRecord {
   final String? checkOutCapturedAt;
   final int breakMinutes;
   final String? activeBreakStart;
+  final double? expectedWorkingHours;
+  final String? effectiveShiftDate;
+  final String? shiftStartTime;
+  final String? shiftEndTime;
+  final String? breakPolicy;
+  final String? breakCompliance;
+  final int? breakCompletedMinutes;
+  final List<AttendanceBreakEvent> breakEvents;
   final double workingHours;
   final bool isLate;
   final int lateMinutes;
@@ -213,6 +271,16 @@ class AttendanceRecord {
       checkOutCapturedAt: asNullableString(json['check_out_captured_at']),
       breakMinutes: asInt(json['break_minutes']),
       activeBreakStart: asNullableString(json['active_break_start']),
+      expectedWorkingHours: asNullableDouble(json['expected_working_hours']),
+      effectiveShiftDate: asNullableString(json['effective_shift_date']),
+      shiftStartTime: asNullableString(json['shift_start_time']),
+      shiftEndTime: asNullableString(json['shift_end_time']),
+      breakPolicy: asNullableString(json['break_policy_type']),
+      breakCompliance: asNullableString(json['break_compliance']),
+      breakCompletedMinutes: asNullableInt(json['break_completed_minutes']),
+      breakEvents: asMapList(json['break_events'])
+          .map(AttendanceBreakEvent.fromJson)
+          .toList(),
       workingHours: asDouble(json['working_hours']),
       isLate: asBool(json['is_late']),
       lateMinutes: asInt(json['late_minutes']),
@@ -260,12 +328,22 @@ class CheckInResult {
     required this.isLate,
     required this.lateMinutes,
     required this.geofenceStatus,
+    this.attendanceDate,
+    this.shiftName,
+    this.shiftSource,
+    this.breakPolicy,
+    this.expectedWorkingHours,
   });
 
   final String attendanceId;
   final bool isLate;
   final int lateMinutes;
   final String geofenceStatus;
+  final String? attendanceDate;
+  final String? shiftName;
+  final String? shiftSource;
+  final String? breakPolicy;
+  final double? expectedWorkingHours;
 
   factory CheckInResult.fromJson(Map<String, dynamic> json) {
     return CheckInResult(
@@ -273,6 +351,11 @@ class CheckInResult {
       isLate: asBool(json['isLate']),
       lateMinutes: asInt(json['lateMinutes']),
       geofenceStatus: asString(json['geofenceStatus']),
+      attendanceDate: asNullableString(json['attendanceDate']),
+      shiftName: asNullableString(json['shiftName']),
+      shiftSource: asNullableString(json['shiftSource']),
+      breakPolicy: asNullableString(json['breakPolicy']),
+      expectedWorkingHours: asNullableDouble(json['expectedWorkingHours']),
     );
   }
 }
@@ -281,15 +364,27 @@ class BreakResult {
   const BreakResult({
     required this.onBreak,
     required this.breakMinutes,
+    this.breakPolicy,
+    this.breakCompliance,
+    this.requiredMinutes,
+    this.events = const [],
   });
 
   final bool onBreak;
   final int breakMinutes;
+  final String? breakPolicy;
+  final String? breakCompliance;
+  final int? requiredMinutes;
+  final List<AttendanceBreakEvent> events;
 
   factory BreakResult.fromJson(Map<String, dynamic> json) {
     return BreakResult(
       onBreak: asBool(json['onBreak']),
       breakMinutes: asInt(json['breakMinutes']),
+      breakPolicy: asNullableString(json['breakPolicy']),
+      breakCompliance: asNullableString(json['breakCompliance']),
+      requiredMinutes: asNullableInt(json['requiredMinutes']),
+      events: asMapList(json['events']).map(AttendanceBreakEvent.fromJson).toList(),
     );
   }
 }
@@ -302,6 +397,11 @@ class CheckOutResult {
     this.checkOutDistanceMeters,
     this.checkOutWithinGeofence,
     this.checkOutGeofenceStatus,
+    this.breakMinutes,
+    this.breakPolicy,
+    this.breakCompliance,
+    this.expectedWorkingHours,
+    this.events = const [],
   });
 
   final double workingHours;
@@ -310,6 +410,11 @@ class CheckOutResult {
   final double? checkOutDistanceMeters;
   final int? checkOutWithinGeofence;
   final String? checkOutGeofenceStatus;
+  final int? breakMinutes;
+  final String? breakPolicy;
+  final String? breakCompliance;
+  final double? expectedWorkingHours;
+  final List<AttendanceBreakEvent> events;
 
   factory CheckOutResult.fromJson(Map<String, dynamic> json) {
     return CheckOutResult(
@@ -322,6 +427,11 @@ class CheckOutResult {
           asNullableInt(json['checkOutWithinGeofence']),
       checkOutGeofenceStatus:
           asNullableString(json['checkOutGeofenceStatus']),
+      breakMinutes: asNullableInt(json['breakMinutes']),
+      breakPolicy: asNullableString(json['breakPolicy']),
+      breakCompliance: asNullableString(json['breakCompliance']),
+      expectedWorkingHours: asNullableDouble(json['expectedWorkingHours']),
+      events: asMapList(json['events']).map(AttendanceBreakEvent.fromJson).toList(),
     );
   }
 }

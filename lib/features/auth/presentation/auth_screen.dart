@@ -4,7 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_design.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../shared/widgets/app_card.dart';
+import '../../../shared/widgets/app_state_widgets.dart';
 import '../application/auth_controller.dart';
 import '../data/models/auth_support.dart';
 
@@ -289,7 +293,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         builder: (context) {
           final info = _helpInfo!;
           return AlertDialog(
-            title: const Text('SmartAttend sign-in help'),
+            title: const Text('SmartAttend Sign-In Help'),
             content: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -298,12 +302,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   _helpSection('Signing in', info.loginGuidance),
                   _helpSection('Password reset', info.passwordResetGuidance),
                   _helpSection('Troubleshooting', info.troubleshooting),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.md),
                   Text(
                     '${info.supportEmail} · ${info.supportPhone}',
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
-                  Text(info.supportHours),
+                  Text(info.supportHours, style: const TextStyle(color: AppColors.textMuted)),
                 ],
               ),
             ),
@@ -329,25 +333,25 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       showDialog<void>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Sandbox reset outbox'),
-          content: SizedBox(
-            width: 480,
+          title: const Text('Sandbox Reset Outbox'),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
             child: messages.isEmpty
                 ? const Text('No verification codes have been issued yet.')
                 : ListView.separated(
                     shrinkWrap: true,
                     itemCount: messages.length,
-                    separatorBuilder: (_, _) => const Divider(height: 12),
+                    separatorBuilder: (_, _) => const Divider(height: AppSpacing.md),
                     itemBuilder: (context, index) {
                       final item = messages[index];
                       return ListTile(
                         contentPadding: EdgeInsets.zero,
-                        title: Text(item.recipientEmail),
+                        title: Text(item.recipientEmail, style: const TextStyle(fontWeight: FontWeight.w700)),
                         subtitle: Text(
-                          '${item.subject}\n${item.resetCode} · ${item.createdAt}',
+                          '${item.subject}\nCode: ${item.resetCode} · ${item.createdAt}',
                         ),
                         trailing: IconButton(
-                          icon: const Icon(Icons.copy_rounded),
+                          icon: const Icon(Icons.copy_rounded, color: AppColors.teal),
                           onPressed: () {
                             _resetCodeController.text = item.resetCode;
                             Navigator.of(context).pop();
@@ -372,16 +376,16 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
   Widget _helpSection(String title, List<String> items) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: AppSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 4),
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+          const SizedBox(height: AppSpacing.xs),
           ...items.map(
             (item) => Padding(
-              padding: const EdgeInsets.only(bottom: 3),
-              child: Text('• $item'),
+              padding: const EdgeInsets.only(bottom: AppSpacing.xxs),
+              child: Text('• $item', style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
             ),
           ),
         ],
@@ -396,7 +400,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFF071B33), Color(0xFF0F3559)],
+            colors: [AppColors.navyDark, AppColors.navy],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -404,26 +408,23 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(AppSpacing.lg),
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1080),
-                child: Card(
-                  elevation: 18,
-                  shadowColor: const Color(0x66000000),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(28),
-                  ),
+                constraints: const BoxConstraints(maxWidth: 1040),
+                child: AppCard(
+                  padding: EdgeInsets.zero,
+                  borderRadius: AppRadius.borderXxl,
+                  elevation: 12,
                   child: LayoutBuilder(
                     builder: (context, constraints) {
-                      final wide = constraints.maxWidth >= 860;
+                      final wide = constraints.maxWidth >= 840;
                       return Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           if (wide) Expanded(child: _buildBrand(theme)),
-                          if (wide) const SizedBox(width: 1),
                           Expanded(
                             child: Padding(
-                              padding: const EdgeInsets.all(28),
+                              padding: EdgeInsets.all(wide ? AppSpacing.xxl : AppSpacing.lg),
                               child: _buildForm(theme),
                             ),
                           ),
@@ -442,16 +443,16 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
   Widget _buildBrand(ThemeData theme) {
     return Container(
-      padding: const EdgeInsets.all(36),
+      padding: const EdgeInsets.all(AppSpacing.xxxl),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Color(0xFF071B33), Color(0xFF123D63)],
+          colors: [AppColors.navyDark, AppColors.navySoft],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(28),
-          bottomLeft: Radius.circular(28),
+          topLeft: Radius.circular(AppRadius.xxl),
+          bottomLeft: Radius.circular(AppRadius.xxl),
         ),
       ),
       child: Column(
@@ -460,61 +461,63 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           Row(
             children: [
               Container(
-                width: 46,
-                height: 46,
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF5EEAD4).withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(14),
+                  color: AppColors.tealLight.withValues(alpha: 0.16),
+                  borderRadius: AppRadius.borderMd,
                 ),
                 child: const Icon(
                   Icons.fingerprint_rounded,
-                  color: Color(0xFF5EEAD4),
+                  color: AppColors.tealLight,
                   size: 26,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppSpacing.md),
               const Text(
                 'SmartAttend',
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 20,
+                  fontSize: 22,
                   fontWeight: FontWeight.w800,
+                  letterSpacing: -0.3,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: AppSpacing.xxxl),
           const Text(
             'Attendance that fits\nyour organization.',
             style: TextStyle(
               color: Colors.white,
-              fontSize: 34,
+              fontSize: 32,
               fontWeight: FontWeight.w800,
-              height: 1.18,
+              height: 1.15,
+              letterSpacing: -0.5,
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: AppSpacing.lg),
           const Text(
             'Secure, tenant-isolated workforce attendance with GPS-aware '
             'punches, approvals, and role-based dashboards.',
             style: TextStyle(
               color: Color(0xFFCBD5E1),
               fontSize: 14,
-              height: 1.6,
+              height: 1.55,
             ),
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: AppSpacing.xxl),
           _brandPoint(Icons.shield_rounded, 'Enterprise access control'),
           _brandPoint(Icons.map_rounded, 'Geofenced office punches'),
           _brandPoint(Icons.insights_rounded, 'Role-aware dashboards'),
-          const SizedBox(height: 28),
+          const SizedBox(height: AppSpacing.xxl),
           OutlinedButton.icon(
             onPressed: _openHelp,
-            icon: const Icon(Icons.help_outline_rounded),
+            icon: const Icon(Icons.help_outline_rounded, size: 18),
             label: const Text('Sign-in help'),
             style: OutlinedButton.styleFrom(
               foregroundColor: Colors.white,
-              side: const BorderSide(color: Colors.white54),
+              side: const BorderSide(color: Colors.white38),
             ),
           ),
         ],
@@ -524,14 +527,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
   Widget _brandPoint(IconData icon, String label) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: AppSpacing.md),
       child: Row(
         children: [
-          Icon(icon, color: const Color(0xFF5EEAD4), size: 20),
-          const SizedBox(width: 12),
+          Icon(icon, color: AppColors.tealLight, size: 20),
+          const SizedBox(width: AppSpacing.md),
           Text(
             label,
-            style: const TextStyle(color: Color(0xFFE2E8F0), fontSize: 13),
+            style: const TextStyle(color: Color(0xFFE2E8F0), fontSize: 14, fontWeight: FontWeight.w500),
           ),
         ],
       ),
@@ -543,8 +546,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (_error != null) _banner(_error!, true),
-        if (_notice != null) _banner(_notice!, false),
+        if (_error != null) AppMessageBanner(message: _error!, isError: true, onDismiss: () => _setError(null)),
+        if (_notice != null) AppMessageBanner(message: _notice!, isError: false),
+        if (_error != null || _notice != null) const SizedBox(height: AppSpacing.md),
         switch (_mode) {
           AuthMode.login => _buildLogin(theme),
           AuthMode.register => _buildRegistration(theme),
@@ -560,19 +564,19 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text('Welcome back', style: theme.textTheme.headlineSmall),
-        const SizedBox(height: 6),
+        const SizedBox(height: AppSpacing.xxs),
         Text(
           'Sign in with your global username or Employee ID.',
           style: theme.textTheme.bodyMedium,
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: AppSpacing.xl),
         _field(
           label: 'Username or Employee ID',
           controller: _identifierController,
           icon: Icons.person_outline_rounded,
           textInputAction: TextInputAction.next,
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: AppSpacing.md),
         _field(
           label: 'Password',
           controller: _passwordController,
@@ -589,7 +593,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             ),
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: AppSpacing.xs),
         Align(
           alignment: Alignment.centerRight,
           child: TextButton(
@@ -597,32 +601,34 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             child: const Text('Forgot password?'),
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: AppSpacing.sm),
         FilledButton(
           onPressed: _busy ? null : _submitLogin,
           child: _busy
               ? const SizedBox(
                   height: 18,
                   width: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
                 )
               : const Text('Sign in'),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.lg),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text('New to SmartAttend?'),
+            const Text('New to SmartAttend? ', style: TextStyle(color: AppColors.textSecondary)),
             TextButton(
               onPressed: () => _navigate(AuthMode.register),
               child: const Text('Register company'),
             ),
           ],
         ),
-        TextButton.icon(
-          onPressed: _openHelp,
-          icon: const Icon(Icons.help_outline_rounded, size: 18),
-          label: const Text('Need help signing in?'),
+        Center(
+          child: TextButton.icon(
+            onPressed: _openHelp,
+            icon: const Icon(Icons.help_outline_rounded, size: 16),
+            label: const Text('Need help signing in?'),
+          ),
         ),
       ],
     );
@@ -634,89 +640,136 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text('Create your workspace', style: theme.textTheme.headlineSmall),
-        const SizedBox(height: 6),
+        const SizedBox(height: AppSpacing.xxs),
         Text(
-          'Company details and the first Company Admin account.',
+          'Company details and administrator account.',
           style: theme.textTheme.bodyMedium,
         ),
-        const SizedBox(height: 20),
-        _sectionLabel('Organization'),
+        const SizedBox(height: AppSpacing.lg),
+        _sectionLabel('Organization Details'),
         _field(
           label: 'Company name',
           controller: _companyNameController,
           icon: Icons.business_outlined,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.md),
         _field(
           label: 'Official company email',
           controller: _companyEmailController,
           icon: Icons.mail_outline_rounded,
           keyboardType: TextInputType.emailAddress,
         ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _field(
-                label: 'Contact number',
-                controller: _contactNumberController,
-                icon: Icons.phone_outlined,
-                keyboardType: TextInputType.phone,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _field(
-                label: 'Industry',
-                controller: _industryController,
-                icon: Icons.factory_outlined,
-              ),
-            ),
-          ],
+        const SizedBox(height: AppSpacing.md),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isNarrow = constraints.maxWidth < 420;
+            if (isNarrow) {
+              return Column(
+                children: [
+                  _field(
+                    label: 'Contact number',
+                    controller: _contactNumberController,
+                    icon: Icons.phone_outlined,
+                    keyboardType: TextInputType.phone,
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  _field(
+                    label: 'Industry',
+                    controller: _industryController,
+                    icon: Icons.factory_outlined,
+                  ),
+                ],
+              );
+            }
+            return Row(
+              children: [
+                Expanded(
+                  child: _field(
+                    label: 'Contact number',
+                    controller: _contactNumberController,
+                    icon: Icons.phone_outlined,
+                    keyboardType: TextInputType.phone,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: _field(
+                    label: 'Industry',
+                    controller: _industryController,
+                    icon: Icons.factory_outlined,
+                  ),
+                ),
+              ],
+            );
+          },
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.md),
         _field(
           label: 'Address',
           controller: _addressController,
           icon: Icons.location_on_outlined,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.md),
         _field(
           label: 'Website (optional)',
           controller: _websiteController,
           icon: Icons.language_outlined,
           keyboardType: TextInputType.url,
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: AppSpacing.lg),
         _sectionLabel('Company Administrator'),
         _field(
           label: 'Full name',
           controller: _adminNameController,
           icon: Icons.person_outline_rounded,
         ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _field(
-                label: 'Email',
-                controller: _adminEmailController,
-                icon: Icons.mail_outline_rounded,
-                keyboardType: TextInputType.emailAddress,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _field(
-                label: 'Mobile',
-                controller: _adminMobileController,
-                icon: Icons.phone_outlined,
-                keyboardType: TextInputType.phone,
-              ),
-            ),
-          ],
+        const SizedBox(height: AppSpacing.md),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isNarrow = constraints.maxWidth < 420;
+            if (isNarrow) {
+              return Column(
+                children: [
+                  _field(
+                    label: 'Email',
+                    controller: _adminEmailController,
+                    icon: Icons.mail_outline_rounded,
+                    keyboardType: TextInputType.emailAddress,
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  _field(
+                    label: 'Mobile',
+                    controller: _adminMobileController,
+                    icon: Icons.phone_outlined,
+                    keyboardType: TextInputType.phone,
+                  ),
+                ],
+              );
+            }
+            return Row(
+              children: [
+                Expanded(
+                  child: _field(
+                    label: 'Email',
+                    controller: _adminEmailController,
+                    icon: Icons.mail_outline_rounded,
+                    keyboardType: TextInputType.emailAddress,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: _field(
+                    label: 'Mobile',
+                    controller: _adminMobileController,
+                    icon: Icons.phone_outlined,
+                    keyboardType: TextInputType.phone,
+                  ),
+                ),
+              ],
+            );
+          },
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.md),
         _field(
           label: 'Global username',
           controller: _usernameController,
@@ -735,14 +788,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       padding: EdgeInsets.all(12),
                       child: Icon(
                         Icons.check_circle_rounded,
-                        color: Color(0xFF047857),
+                        color: AppColors.success,
                         size: 18,
                       ),
                     )
                   : null,
           helperText: _usernameReason,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.md),
         _field(
           label: 'Password',
           controller: _registrationPasswordController,
@@ -761,24 +814,25 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           ),
           helperText: 'Minimum 8 characters with uppercase, lowercase, and a number.',
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.md),
         _field(
           label: 'Confirm password',
           controller: _registrationConfirmController,
           icon: Icons.lock_outline_rounded,
           obscure: _obscureRegistrationPassword,
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: AppSpacing.xl),
         FilledButton(
           onPressed: _busy ? null : _submitRegistration,
           child: _busy
               ? const SizedBox(
                   height: 18,
                   width: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
                 )
               : const Text('Register company'),
         ),
+        const SizedBox(height: AppSpacing.sm),
         TextButton(
           onPressed: () => _navigate(AuthMode.login),
           child: const Text('Back to sign in'),
@@ -794,28 +848,29 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text('Reset password', style: theme.textTheme.headlineSmall),
-          const SizedBox(height: 6),
+          const SizedBox(height: AppSpacing.xxs),
           Text(
             'Enter your registered username or email address.',
             style: theme.textTheme.bodyMedium,
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: AppSpacing.xl),
           _field(
             label: 'Username or email',
             controller: _forgotIdentifierController,
             icon: Icons.mail_outline_rounded,
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: AppSpacing.xl),
           FilledButton(
             onPressed: _busy ? null : _submitForgotRequest,
             child: _busy
                 ? const SizedBox(
                     height: 18,
                     width: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
                   )
                 : const Text('Send verification code'),
           ),
+          const SizedBox(height: AppSpacing.sm),
           TextButton(
             onPressed: () => _navigate(AuthMode.login),
             child: const Text('Back to sign in'),
@@ -829,19 +884,19 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text('Verify and reset', style: theme.textTheme.headlineSmall),
-        const SizedBox(height: 6),
+        const SizedBox(height: AppSpacing.xxs),
         Text(
           'Enter the single-use code sent to your registered inbox.',
           style: theme.textTheme.bodyMedium,
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: AppSpacing.xl),
         _field(
           label: 'Verification code',
           controller: _resetCodeController,
           icon: Icons.numbers_rounded,
           textCapitalization: TextCapitalization.characters,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.md),
         _field(
           label: 'New password',
           controller: _resetPasswordController,
@@ -857,29 +912,31 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 setState(() => _obscureResetPassword = !_obscureResetPassword),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.md),
         _field(
           label: 'Confirm password',
           controller: _resetConfirmController,
           icon: Icons.lock_outline_rounded,
           obscure: _obscureResetPassword,
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: AppSpacing.xl),
         FilledButton(
           onPressed: _busy ? null : _submitReset,
           child: _busy
               ? const SizedBox(
                   height: 18,
                   width: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
                 )
               : const Text('Update password'),
         ),
+        const SizedBox(height: AppSpacing.sm),
         OutlinedButton.icon(
           onPressed: _showOutbox,
-          icon: const Icon(Icons.markunread_mailbox_outlined),
+          icon: const Icon(Icons.markunread_mailbox_outlined, size: 18),
           label: const Text('Open sandbox outbox'),
         ),
+        const SizedBox(height: AppSpacing.xs),
         TextButton(
           onPressed: () => _navigate(AuthMode.login),
           child: const Text('Back to sign in'),
@@ -890,14 +947,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
   Widget _sectionLabel(String text) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: Text(
         text.toUpperCase(),
         style: const TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w800,
           letterSpacing: 1.1,
-          color: Color(0xFF0F766E),
+          color: AppColors.teal,
         ),
       ),
     );
@@ -922,46 +979,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       textCapitalization: textCapitalization,
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: Icon(icon, size: 20),
+        prefixIcon: Icon(icon, size: 20, color: AppColors.textMuted),
         suffixIcon: suffix,
         helperText: helperText,
         helperMaxLines: 2,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-      ),
-    );
-  }
-
-  Widget _banner(String message, bool isError) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isError ? const Color(0xFFFEF2F2) : const Color(0xFFECFDF5),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isError ? const Color(0xFFFECACA) : const Color(0xFFA7F3D0),
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            isError ? Icons.error_outline_rounded : Icons.check_circle_outline,
-            color: isError ? const Color(0xFFB91C1C) : const Color(0xFF047857),
-            size: 18,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              message,
-              style: TextStyle(
-                color: isError
-                    ? const Color(0xFF991B1B)
-                    : const Color(0xFF065F46),
-                fontSize: 12,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

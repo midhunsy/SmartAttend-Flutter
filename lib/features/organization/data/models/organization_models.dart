@@ -60,6 +60,124 @@ class CompanySettings {
   }
 }
 
+class ShiftAssignment {
+  const ShiftAssignment({
+    required this.assignmentId,
+    required this.scopeType,
+    this.scopeId,
+    required this.shiftId,
+    required this.startDate,
+    required this.endDate,
+    this.shiftName,
+    this.startTime,
+    this.endTime,
+    this.departmentName,
+    this.employeeName,
+  });
+
+  final String assignmentId;
+  final String scopeType;
+  final String? scopeId;
+  final String shiftId;
+  final String startDate;
+  final String endDate;
+  final String? shiftName;
+  final String? startTime;
+  final String? endTime;
+  final String? departmentName;
+  final String? employeeName;
+
+  String get scopeLabel {
+    switch (scopeType) {
+      case 'department':
+        return 'Department · ${departmentName ?? scopeId ?? '—'}';
+      case 'employee':
+        return 'Employee · ${employeeName ?? scopeId ?? '—'}';
+      default:
+        return 'Company-wide';
+    }
+  }
+
+  String get shiftLabel => '${shiftName ?? 'Shift'} · ${startTime ?? '—'}–${endTime ?? '—'}';
+
+  factory ShiftAssignment.fromJson(Map<String, dynamic> json) {
+    return ShiftAssignment(
+      assignmentId: asString(json['assignment_id']),
+      scopeType: asString(json['scope_type'], 'company'),
+      scopeId: asNullableString(json['scope_id']),
+      shiftId: asString(json['shift_id']),
+      startDate: asString(json['start_date']),
+      endDate: asString(json['end_date']),
+      shiftName: asNullableString(json['shift_name']),
+      startTime: asNullableString(json['start_time']),
+      endTime: asNullableString(json['end_time']),
+      departmentName: asNullableString(json['department_name']),
+      employeeName: asNullableString(json['employee_name']),
+    );
+  }
+}
+
+class LunchBreakConfig {
+  const LunchBreakConfig({
+    required this.configId,
+    required this.scopeType,
+    this.scopeId,
+    required this.breakType,
+    required this.durationMinutes,
+    this.windowStart,
+    this.windowEnd,
+    this.maxDurationMinutes,
+    required this.isActive,
+    this.departmentName,
+    this.employeeName,
+  });
+
+  final String configId;
+  final String scopeType;
+  final String? scopeId;
+  final String breakType;
+  final int durationMinutes;
+  final String? windowStart;
+  final String? windowEnd;
+  final int? maxDurationMinutes;
+  final bool isActive;
+  final String? departmentName;
+  final String? employeeName;
+
+  String get scopeLabel {
+    switch (scopeType) {
+      case 'department':
+        return 'Department · ${departmentName ?? scopeId ?? '—'}';
+      case 'employee':
+        return 'Employee · ${employeeName ?? scopeId ?? '—'}';
+      default:
+        return 'Company-wide';
+    }
+  }
+
+  String get windowLabel {
+    if (windowStart == null || windowEnd == null) return 'Any time';
+    return '$windowStart–$windowEnd';
+  }
+
+  factory LunchBreakConfig.fromJson(Map<String, dynamic> json) {
+    final durationMinutes = asInt(json['duration_minutes']);
+    return LunchBreakConfig(
+      configId: asString(json['config_id']),
+      scopeType: asString(json['scope_type'], 'company'),
+      scopeId: asNullableString(json['scope_id']),
+      breakType: asString(json['break_type'], 'mandatory'),
+      durationMinutes: durationMinutes > 0 ? durationMinutes : 60,
+      windowStart: asNullableString(json['window_start']),
+      windowEnd: asNullableString(json['window_end']),
+      maxDurationMinutes: asNullableInt(json['max_duration_minutes']),
+      isActive: asBool(json['is_active']),
+      departmentName: asNullableString(json['department_name']),
+      employeeName: asNullableString(json['employee_name']),
+    );
+  }
+}
+
 class OrganizationData {
   const OrganizationData({
     required this.departments,
@@ -68,6 +186,11 @@ class OrganizationData {
     required this.holidays,
     required this.settings,
     required this.managers,
+    required this.assignableEmployees,
+    required this.shiftAssignments,
+    required this.lunchBreakConfigs,
+    this.effectiveShift,
+    this.myBreakConfig,
   });
 
   final List<DepartmentOption> departments;
@@ -76,9 +199,16 @@ class OrganizationData {
   final List<HolidayEntry> holidays;
   final CompanySettings? settings;
   final List<ManagerOption> managers;
+  final List<ManagerOption> assignableEmployees;
+  final List<ShiftAssignment> shiftAssignments;
+  final List<LunchBreakConfig> lunchBreakConfigs;
+  final ShiftInfo? effectiveShift;
+  final LunchBreakConfig? myBreakConfig;
 
   factory OrganizationData.fromJson(Map<String, dynamic> json) {
     final settingsMap = asMap(json['settings']);
+    final effectiveShiftJson = json['effectiveShift'];
+    final myBreakConfigJson = json['myBreakConfig'];
     return OrganizationData(
       departments: asMapList(json['departments'])
           .map(DepartmentOption.fromJson)
@@ -88,6 +218,21 @@ class OrganizationData {
       holidays: asMapList(json['holidays']).map(HolidayEntry.fromJson).toList(),
       settings: settingsMap.isEmpty ? null : CompanySettings.fromJson(settingsMap),
       managers: asMapList(json['managers']).map(ManagerOption.fromJson).toList(),
+      assignableEmployees: asMapList(json['employees'])
+          .map(ManagerOption.fromJson)
+          .toList(),
+      shiftAssignments: asMapList(json['shiftAssignments'])
+          .map(ShiftAssignment.fromJson)
+          .toList(),
+      lunchBreakConfigs: asMapList(json['lunchBreakConfigs'])
+          .map(LunchBreakConfig.fromJson)
+          .toList(),
+      effectiveShift: effectiveShiftJson == null
+          ? null
+          : ShiftInfo.fromJson(asMap(effectiveShiftJson)),
+      myBreakConfig: myBreakConfigJson == null
+          ? null
+          : LunchBreakConfig.fromJson(asMap(myBreakConfigJson)),
     );
   }
 }

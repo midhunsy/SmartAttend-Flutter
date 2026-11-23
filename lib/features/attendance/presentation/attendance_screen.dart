@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_design.dart';
+import '../../../shared/widgets/app_card.dart';
+import '../../../shared/widgets/app_page_header.dart';
+import '../../../shared/widgets/app_state_widgets.dart';
+import '../../../shared/widgets/app_status_chip.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../auth/data/models/auth_user.dart';
 import '../core/geo_utils.dart';
@@ -152,17 +158,22 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
         case _PunchAction.checkIn:
           final result = await repo.checkIn(fix!);
           _actionMessage = 'Checked in · ${result.geofenceStatus}'
-              '${result.isLate ? ' · Late by ${result.lateMinutes}m' : ''}';
+              '${result.isLate ? ' · Late by ${result.lateMinutes}m' : ''}'
+              '${result.shiftName == null ? '' : ' · ${result.shiftName}'}'
+              '${result.expectedWorkingHours == null ? '' : ' · ${formatHours(result.expectedWorkingHours)}h expected'}'
+              '${result.breakPolicy == null ? '' : ' · ${_breakTypeLabel(result.breakPolicy)} break'}';
         case _PunchAction.breakToggle:
           final result = await repo.toggleBreak();
           _actionMessage = result.onBreak
               ? 'Break started · ${result.breakMinutes}m recorded so far'
-              : 'Break ended · ${result.breakMinutes}m total break';
+              : 'Break ended · ${result.breakMinutes}m total break · ${_breakStatusLabel(result.breakCompliance)}';
         case _PunchAction.checkOut:
           final result = await repo.checkOut(fix!);
           _actionMessage = 'Checked out · ${formatHours(result.workingHours)}h'
+              '${result.expectedWorkingHours == null ? '' : ' / ${formatHours(result.expectedWorkingHours)}h expected'}'
               ' · ${result.status}'
-              '${result.checkOutGeofenceStatus == null ? '' : ' · ${result.checkOutGeofenceStatus}'}';
+              '${result.checkOutGeofenceStatus == null ? '' : ' · ${result.checkOutGeofenceStatus}'}'
+              ' · Break ${_breakStatusLabel(result.breakCompliance)}';
       }
       if (!mounted) return;
       setState(() {
@@ -246,20 +257,20 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
   Widget build(BuildContext context) {
     final user = ref.watch(authControllerProvider).user;
     if (user == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoadingState(message: 'Loading attendance preferences…');
     }
 
     return FutureBuilder<_AttendanceBundle>(
       future: _bundleFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 80),
-            child: Center(child: CircularProgressIndicator()),
-          );
+          return const AppLoadingState(message: 'Loading attendance logs and GPS office bounds…');
         }
         if (snapshot.hasError || !snapshot.hasData) {
-          return _errorState(snapshot.error);
+          return Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: AppErrorState(error: snapshot.error, onRetry: _reload),
+          );
         }
 
         final bundle = snapshot.data!;
@@ -268,64 +279,65 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
         final focusRecord = _selectedRecord ?? todayRecord;
         final office = bundle.attendance.assignedLocation;
         final tabs = <Tab>[
-          const Tab(text: 'Today'),
-          const Tab(text: 'History'),
+          const Tab(text: 'Today Punch'),
+          const Tab(text: 'History Calendar'),
           const Tab(text: 'Regularization'),
-          if (user.canViewTeamMap) const Tab(text: 'Team map'),
+          if (user.canViewTeamMap) const Tab(text: 'Live Team Map'),
         ];
 
         return DefaultTabController(
           length: tabs.length,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Attendance',
-                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                fontWeight: FontWeight.w700,
-                              ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Verify geofenced check-in/out, track shift breaks, and review attendance records.',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ],
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.xxxl),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AppPageHeader(
+                  eyebrow: 'Workforce tracking',
+                  title: 'Attendance & Time Tracker',
+                  subtitle:
+                      'Verify geofenced check-in/out, track shift breaks, and review attendance logs.',
+                  actions: [
+                    OutlinedButton.icon(
+                      onPressed: _reload,
+                      icon: const Icon(Icons.refresh_rounded, size: 18),
+                      label: const Text('Reload'),
                     ),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: _reload,
-                    icon: const Icon(Icons.refresh_rounded),
-                    label: const Text('Reload'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              MessageBanner(message: _actionMessage, isError: _isError(_actionMessage)),
-              if (_actionMessage.isNotEmpty) const SizedBox(height: 12),
-              TabBar(
-                tabs: tabs,
-                isScrollable: true,
-                tabAlignment: TabAlignment.start,
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: TabBarView(
-                  children: [
-                    _todayTab(bundle, user, focusRecord, office),
-                    _historyTab(bundle, user),
-                    _regularizationTab(bundle, user),
-                    if (user.canViewTeamMap) const HRAttendanceMapView(),
                   ],
                 ),
-              ),
-            ],
+                const SizedBox(height: AppSpacing.md),
+                AppMessageBanner(
+                  message: _actionMessage,
+                  isError: _isError(_actionMessage),
+                  onDismiss: () => setState(() => _actionMessage = ''),
+                ),
+                if (_actionMessage.isNotEmpty) const SizedBox(height: AppSpacing.md),
+                Container(
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: AppRadius.borderMd,
+                    border: Border.fromBorderSide(BorderSide(color: AppColors.outline)),
+                  ),
+                  child: TabBar(
+                    tabs: tabs,
+                    isScrollable: true,
+                    tabAlignment: TabAlignment.start,
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      _todayTab(bundle, user, focusRecord, office),
+                      _historyTab(bundle, user),
+                      _regularizationTab(bundle, user),
+                      if (user.canViewTeamMap) const HRAttendanceMapView(),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -350,16 +362,21 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
         : record?.geofenceStatus ?? info.status;
     final canPunch = user.employeeRecordId != null && _gpsFix != null;
     final hasActiveCheckIn = record?.isCheckedIn ?? false;
+    final assignedShift = bundle.attendance.assignedShift;
 
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          MessageBanner(message: _gpsMessage, isError: _isError(_gpsMessage)),
-          if (_gpsMessage.isNotEmpty) const SizedBox(height: 12),
-          SectionCard(
+          AppMessageBanner(
+            message: _gpsMessage,
+            isError: _isError(_gpsMessage),
+            onDismiss: () => setState(() => _gpsMessage = ''),
+          ),
+          if (_gpsMessage.isNotEmpty) const SizedBox(height: AppSpacing.md),
+          AppSectionCard(
             title: 'Live device location',
-            subtitle: 'Real GPS only · backend validates coordinates, accuracy, timestamp, and geofence',
+            subtitle: 'Live GPS and geofence status',
             icon: Icons.gps_fixed_rounded,
             action: FilledButton.tonalIcon(
               onPressed: _gpsBusy ? null : () => _refreshLocation(),
@@ -369,12 +386,10 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
                       height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(Icons.my_location_rounded),
+                  : const Icon(Icons.my_location_rounded, size: 18),
               label: const Text('Refresh Location'),
             ),
-            child: Wrap(
-              spacing: 10,
-              runSpacing: 10,
+            child: InfoTileGrid(
               children: [
                 InfoTile(label: 'Date', value: record?.attendanceDate ?? currentDate()),
                 InfoTile(label: 'Local time', value: formatLocalTime(DateTime.now().toIso8601String())),
@@ -384,7 +399,7 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
                 InfoTile(
                   label: 'Geofence',
                   value: fenceStatus,
-                  valueColor: info.isInside ? Colors.green.shade700 : Colors.orange.shade800,
+                  valueColor: info.isInside ? AppColors.success : AppColors.warning,
                 ),
                 InfoTile(
                   label: 'Assigned office',
@@ -397,34 +412,35 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 16),
-          SectionCard(
+          const SizedBox(height: AppSpacing.lg),
+          AppSectionCard(
             title: 'Punch controls',
-            subtitle: 'Check-in is blocked outside the geofence; outside check-out is recorded and audited',
+            subtitle: 'GPS check-in, breaks and check-out',
             icon: Icons.fingerprint_rounded,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
+                  spacing: AppSpacing.md,
+                  runSpacing: AppSpacing.md,
                   children: [
                     FilledButton.icon(
+                      style: FilledButton.styleFrom(backgroundColor: AppColors.teal),
                       onPressed: _actionBusy || !canPunch || hasActiveCheckIn ? null : () => _punch(_PunchAction.checkIn),
                       icon: const Icon(Icons.login_rounded),
                       label: const Text('Check In'),
                     ),
-                    FilledButton.tonalIcon(
+                    OutlinedButton.icon(
                       onPressed: _actionBusy ||
                               user.employeeRecordId == null ||
                               !hasActiveCheckIn
                           ? null
                           : () => _punch(_PunchAction.breakToggle),
-                      icon: const Icon(Icons.free_breakfast_rounded),
+                      icon: const Icon(Icons.free_breakfast_rounded, size: 18),
                       label: Text(record?.isOnBreak ?? false ? 'End Break' : 'Start Break'),
                     ),
                     FilledButton.icon(
-                      style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
+                      style: FilledButton.styleFrom(backgroundColor: AppColors.error),
                       onPressed: _actionBusy || !canPunch || !hasActiveCheckIn ? null : () => _punch(_PunchAction.checkOut),
                       icon: const Icon(Icons.logout_rounded),
                       label: const Text('Check Out'),
@@ -432,34 +448,69 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
                   ],
                 ),
                 if (!canPunch) ...[
-                  const SizedBox(height: 14),
+                  const SizedBox(height: AppSpacing.md),
                   Text(
                     user.employeeRecordId == null
                         ? 'Link an employee record to use GPS check-in and check-out.'
                         : 'Refresh Location with a fresh, accurate GPS fix to unlock punch controls.',
-                    style: Theme.of(context).textTheme.bodySmall,
+                    style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
                   ),
                 ],
                 if (info.status == 'Outside Geofence' && _gpsFix != null) ...[
-                  const SizedBox(height: 10),
-                  Text(
+                  const SizedBox(height: AppSpacing.sm),
+                  const Text(
                     'You are outside the assigned office geofence. Check-in will be rejected by the server.',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.orange.shade800,
-                        ),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.warning,
+                    ),
                   ),
                 ],
+                const SizedBox(height: AppSpacing.lg),
+                InfoTileGrid(
+                  children: [
+                    InfoTile(
+                      label: 'Assigned shift',
+                      value: assignedShift == null
+                          ? 'No effective shift'
+                          : '${assignedShift.name} · ${assignedShift.startTime}–${assignedShift.endTime}',
+                    ),
+                    InfoTile(
+                      label: 'Expected hours',
+                      value: assignedShift == null
+                          ? '—'
+                          : '${formatHours(assignedShift.workingHours)}h',
+                    ),
+                    InfoTile(
+                      label: 'Shift rules',
+                      value: assignedShift == null
+                          ? '—'
+                          : 'Grace ${assignedShift.graceMinutes}m · Break ${assignedShift.breakMinutes}m',
+                    ),
+                  ],
+                ),
                 if (record != null) ...[
-                  const SizedBox(height: 16),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
+                  const SizedBox(height: AppSpacing.lg),
+                  InfoTileGrid(
                     children: [
                       InfoTile(label: 'Status', value: record.status),
                       InfoTile(label: 'Check-in', value: formatLocalTime(record.checkInTime)),
                       InfoTile(label: 'Check-out', value: formatLocalTime(record.checkOutTime)),
                       InfoTile(label: 'Working hours', value: formatHours(record.workingHours)),
                       InfoTile(label: 'Break', value: '${record.breakMinutes}m'),
+                      InfoTile(
+                        label: 'Break policy',
+                        value: _breakTypeLabel(record.breakPolicy),
+                      ),
+                      InfoTile(
+                        label: 'Break status',
+                        value: _breakStatusLabel(record.breakCompliance),
+                      ),
+                      InfoTile(
+                        label: 'Shift date',
+                        value: record.effectiveShiftDate ?? record.attendanceDate,
+                      ),
                       InfoTile(label: 'Late', value: record.isLate ? '${record.lateMinutes}m' : 'No'),
                     ],
                   ),
@@ -467,10 +518,10 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 16),
-          SectionCard(
+          const SizedBox(height: AppSpacing.lg),
+          AppSectionCard(
             title: 'Location evidence',
-            subtitle: 'Office geofence, device location, and punch coordinates',
+            subtitle: 'Office boundary and punch coordinates',
             icon: Icons.map_rounded,
             child: AttendanceMapView(
               office: office,
@@ -497,62 +548,72 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              SizedBox(
-                width: 150,
-                child: DropdownButtonFormField<String>(
-                  initialValue: _month,
-                  isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Month'),
-                  items: _monthOptions()
-                      .map((month) => DropdownMenuItem<String>(value: month, child: Text(month)))
-                      .toList(),
-                  onChanged: (value) {
-                    if (value == null) return;
-                    setState(() {
-                      _month = value;
-                      _bundleFuture = _loadBundle();
-                    });
-                  },
-                ),
-              ),
-              if (user.canApprove)
-                SizedBox(
-                  width: 150,
-                  child: DropdownButtonFormField<String>(
-                    initialValue: _scope,
-                    decoration: const InputDecoration(labelText: 'Scope'),
-                    items: const [
-                      DropdownMenuItem(value: 'all', child: Text('All employees')),
-                      DropdownMenuItem(value: 'mine', child: Text('My records')),
-                    ],
-                    onChanged: (value) {
-                      if (value == null) return;
-                      setState(() {
-                        _scope = value;
-                        _bundleFuture = _loadBundle();
-                      });
-                    },
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 520;
+              final fieldWidth = compact
+                  ? constraints.maxWidth
+                  : (constraints.maxWidth - AppSpacing.md) / 2;
+              return Wrap(
+                spacing: AppSpacing.md,
+                runSpacing: AppSpacing.md,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  SizedBox(
+                    width: fieldWidth,
+                    child: DropdownButtonFormField<String>(
+                      initialValue: _month,
+                      isExpanded: true,
+                      decoration: const InputDecoration(labelText: 'Month'),
+                      items: _monthOptions()
+                          .map((month) => DropdownMenuItem<String>(value: month, child: Text(month)))
+                          .toList(),
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setState(() {
+                          _month = value;
+                          _bundleFuture = _loadBundle();
+                        });
+                      },
+                    ),
                   ),
-                ),
-            ],
+                  if (user.canApprove)
+                    SizedBox(
+                      width: fieldWidth,
+                      child: DropdownButtonFormField<String>(
+                        initialValue: _scope,
+                        isExpanded: true,
+                        decoration: const InputDecoration(labelText: 'Scope'),
+                        items: const [
+                          DropdownMenuItem(value: 'all', child: Text('All employees')),
+                          DropdownMenuItem(value: 'mine', child: Text('My records')),
+                        ],
+                        onChanged: (value) {
+                          if (value == null) return;
+                          setState(() {
+                            _scope = value;
+                            _bundleFuture = _loadBundle();
+                          });
+                        },
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
-          const SizedBox(height: 16),
-          SectionCard(
-            title: '$_month calendar',
-            subtitle: 'Select a marked day to inspect its GPS evidence',
+          const SizedBox(height: AppSpacing.lg),
+          AppSectionCard(
+            title: '$_month Calendar View',
+            subtitle: 'Select a day to inspect its punch log and coordinates',
             icon: Icons.calendar_month_rounded,
             child: GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 7,
-                mainAxisSpacing: 6,
-                crossAxisSpacing: 6,
+              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 90,
+                mainAxisSpacing: AppSpacing.xs,
+                crossAxisSpacing: AppSpacing.xs,
+                childAspectRatio: 1.1,
               ),
               itemCount: daysInMonth,
               itemBuilder: (context, index) {
@@ -562,49 +623,64 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
                     '$_month-${day.toString().padLeft(2, '0')}';
                 final tone = record == null ? null : toneFromStatus(record.status);
                 final fill = switch (tone) {
-                  'success' => Colors.green.shade100,
-                  'warning' => Colors.orange.shade100,
-                  'danger' => Colors.red.shade100,
-                  'info' => Colors.blue.shade100,
-                  _ => Theme.of(context).colorScheme.surfaceContainerHighest,
+                  'success' => AppColors.successContainer,
+                  'warning' => AppColors.warningContainer,
+                  'danger' => AppColors.errorContainer,
+                  'info' => AppColors.infoContainer,
+                  _ => AppColors.surfaceSubtle,
                 };
                 return Material(
-                  color: selected ? Theme.of(context).colorScheme.primaryContainer : fill,
-                  borderRadius: BorderRadius.circular(10),
+                  color: selected ? AppColors.tealLight : fill,
+                  borderRadius: AppRadius.borderSm,
                   child: InkWell(
                     onTap: record == null
                         ? null
                         : () => setState(() => _selectedRecord = record),
-                    borderRadius: BorderRadius.circular(10),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text('$day', style: Theme.of(context).textTheme.titleSmall),
-                        if (record != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: Text(
-                              record.status,
-                              textAlign: TextAlign.center,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.labelSmall,
+                    borderRadius: AppRadius.borderSm,
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSpacing.xs),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            '$day',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: selected ? AppColors.teal : AppColors.textPrimary,
                             ),
                           ),
-                      ],
+                          if (record != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: AppSpacing.xxs),
+                              child: Text(
+                                record.status,
+                                textAlign: TextAlign.center,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
                 );
               },
             ),
           ),
-          const SizedBox(height: 16),
-          SectionCard(
-            title: 'Attendance records',
-            subtitle: '${records.length} record${records.length == 1 ? '' : 's'} for $_month',
+          const SizedBox(height: AppSpacing.lg),
+          AppSectionCard(
+            title: 'Attendance Records',
+            subtitle: '${records.length} record${records.length == 1 ? '' : 's'} logged for $_month',
             icon: Icons.table_rows_rounded,
             child: records.isEmpty
-                ? const EmptyState(
+                ? const AppEmptyState(
+                    icon: Icons.event_note_outlined,
                     title: 'No attendance records',
                     description: 'Records for the selected month will appear here.',
                   )
@@ -631,7 +707,7 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
                             DataCell(Text(formatLocalTime(record.checkInTime))),
                             DataCell(Text(formatLocalTime(record.checkOutTime))),
                             DataCell(Text(formatHours(record.workingHours))),
-                            DataCell(StatusChip(label: record.status)),
+                            DataCell(AppStatusChip(label: record.status, compact: true)),
                             DataCell(Text(record.geofenceStatus ?? '—')),
                           ],
                         );
@@ -649,90 +725,119 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SectionCard(
-            title: 'Submit regularization',
+          AppSectionCard(
+            title: 'Submit Regularization',
             subtitle: 'Request a correction for a missed or incorrect punch',
             icon: Icons.edit_document,
-            child: Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                SizedBox(
-                  width: 180,
-                  child: TextField(
-                    controller: _regularizationDate,
-                    decoration: const InputDecoration(labelText: 'Date (YYYY-MM-DD)'),
-                  ),
-                ),
-                SizedBox(
-                  width: 120,
-                  child: TextField(
-                    controller: _regularizationCheckIn,
-                    decoration: const InputDecoration(labelText: 'Check-in (HH:mm)'),
-                  ),
-                ),
-                SizedBox(
-                  width: 120,
-                  child: TextField(
-                    controller: _regularizationCheckOut,
-                    decoration: const InputDecoration(labelText: 'Check-out (HH:mm)'),
-                  ),
-                ),
-                SizedBox(
-                  width: 320,
-                  child: TextField(
-                    controller: _regularizationReason,
-                    decoration: const InputDecoration(labelText: 'Reason'),
-                    maxLines: 2,
-                  ),
-                ),
-                FilledButton.icon(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final compact = constraints.maxWidth < 600;
+                final fieldWidth = compact
+                    ? constraints.maxWidth
+                    : (constraints.maxWidth - (2 * AppSpacing.md)) / 3;
+                final submitButton = FilledButton.icon(
                   onPressed: _actionBusy || user.employeeRecordId == null
                       ? null
                       : _createRegularization,
-                  icon: const Icon(Icons.send_rounded),
-                  label: const Text('Submit request'),
-                ),
-              ],
+                  icon: const Icon(Icons.send_rounded, size: 18),
+                  label: const Text('Submit Request'),
+                );
+                return Wrap(
+                  spacing: AppSpacing.md,
+                  runSpacing: AppSpacing.md,
+                  crossAxisAlignment: WrapCrossAlignment.end,
+                  children: [
+                    SizedBox(
+                      width: fieldWidth,
+                      child: TextField(
+                        controller: _regularizationDate,
+                        decoration: const InputDecoration(labelText: 'Date (YYYY-MM-DD)'),
+                      ),
+                    ),
+                    SizedBox(
+                      width: fieldWidth,
+                      child: TextField(
+                        controller: _regularizationCheckIn,
+                        decoration: const InputDecoration(labelText: 'Check-in (HH:mm)'),
+                      ),
+                    ),
+                    SizedBox(
+                      width: fieldWidth,
+                      child: TextField(
+                        controller: _regularizationCheckOut,
+                        decoration: const InputDecoration(labelText: 'Check-out (HH:mm)'),
+                      ),
+                    ),
+                    SizedBox(
+                      width: constraints.maxWidth,
+                      child: TextField(
+                        controller: _regularizationReason,
+                        decoration: const InputDecoration(labelText: 'Reason'),
+                        maxLines: compact ? 3 : 1,
+                      ),
+                    ),
+                    if (compact)
+                      SizedBox(width: constraints.maxWidth, child: submitButton)
+                    else
+                      submitButton,
+                  ],
+                );
+              },
             ),
           ),
-          const SizedBox(height: 16),
-          SectionCard(
-            title: 'Regularization requests',
-            subtitle: '${bundle.regularizations.length} request(s)',
+          const SizedBox(height: AppSpacing.lg),
+          AppSectionCard(
+            title: 'Regularization Requests',
+            subtitle: '${bundle.regularizations.length} request(s) in history',
             icon: Icons.request_quote_outlined,
             child: bundle.regularizations.isEmpty
-                ? const EmptyState(
-                    title: 'No requests',
+                ? const AppEmptyState(
+                    icon: Icons.history_edu_outlined,
+                    title: 'No regularization requests',
                     description: 'Submitted regularization requests will appear here.',
                   )
-                : Column(
-                    children: bundle.regularizations.map((request) {
+                : ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: bundle.regularizations.length,
+                    separatorBuilder: (_, _) => const Divider(height: AppSpacing.xs),
+                    itemBuilder: (context, index) {
+                      final request = bundle.regularizations[index];
                       return ListTile(
-                        leading: const Icon(Icons.fact_check_outlined),
+                        contentPadding: EdgeInsets.zero,
+                        leading: Container(
+                          padding: const EdgeInsets.all(AppSpacing.xs + 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.infoContainer,
+                            borderRadius: AppRadius.borderSm,
+                          ),
+                          child: const Icon(Icons.edit_calendar_rounded, size: 18, color: AppColors.info),
+                        ),
                         title: Text(
                           '${request.attendanceDate} · ${request.employeeName ?? request.employeeId ?? 'Employee'}',
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
                         ),
                         subtitle: Text(
-                          '${request.requestedCheckIn} → ${request.requestedCheckOut}\n${request.reason}',
+                          'Requested: ${request.requestedCheckIn} → ${request.requestedCheckOut}\nReason: ${request.reason}',
+                          style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
                         ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
+                        trailing: Wrap(
+                          spacing: AppSpacing.xs,
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
-                            StatusChip(label: request.status),
+                            AppStatusChip(label: request.status, compact: true),
                             if (user.canApprove && request.status == 'Pending') ...[
-                              const SizedBox(width: 8),
                               IconButton(
                                 tooltip: 'Approve',
-                                color: Colors.green.shade700,
+                                color: AppColors.success,
                                 onPressed: _actionBusy
                                     ? null
                                     : () => _regularizationAction(request, true),
-                                icon: const Icon(Icons.check_circle_outline),
+                                icon: const Icon(Icons.check_circle_outline_rounded),
                               ),
                               IconButton(
                                 tooltip: 'Reject',
-                                color: Colors.red.shade700,
+                                color: AppColors.error,
                                 onPressed: _actionBusy
                                     ? null
                                     : () => _regularizationAction(request, false),
@@ -742,31 +847,10 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
                           ],
                         ),
                       );
-                    }).toList(),
+                    },
                   ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _errorState(Object? error) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          children: [
-            const Icon(Icons.cloud_off_rounded, size: 42, color: Colors.orange),
-            const SizedBox(height: 12),
-            Text(_message(error), textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: _reload,
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Try again'),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -824,6 +908,38 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
         value.contains('exceeds') ||
         value.contains('invalid') ||
         value.contains('linked');
+  }
+
+  String _breakTypeLabel(String? policy) {
+    switch (policy) {
+      case 'mandatory':
+        return 'Mandatory';
+      case 'optional':
+        return 'Optional';
+      case 'flexible':
+        return 'Flexible';
+      default:
+        return 'Not configured';
+    }
+  }
+
+  String _breakStatusLabel(String? compliance) {
+    switch (compliance) {
+      case 'completed':
+        return 'Completed';
+      case 'incomplete':
+        return 'Incomplete';
+      case 'outside_rules':
+        return 'Outside rules';
+      case 'not_taken':
+        return 'Not taken';
+      case 'not_applicable':
+        return 'Not applicable';
+      case 'pending':
+        return 'Pending';
+      default:
+        return 'Not configured';
+    }
   }
 
   String _message(Object? error) {

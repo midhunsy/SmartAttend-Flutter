@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_design.dart';
+import '../../../shared/widgets/app_card.dart';
+import '../../../shared/widgets/app_page_header.dart';
+import '../../../shared/widgets/app_state_widgets.dart';
+import '../../../shared/widgets/app_status_chip.dart';
+import '../../attendance/presentation/widgets/attendance_widgets.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../auth/data/models/auth_user.dart';
-import '../../attendance/presentation/widgets/attendance_widgets.dart';
 import '../core/leave_policy.dart';
 import '../data/leave_repository.dart';
 import '../data/models/leave_models.dart';
@@ -207,115 +213,134 @@ class _LeaveScreenState extends ConsumerState<LeaveScreen> {
   Widget build(BuildContext context) {
     final user = ref.watch(authControllerProvider).user;
     if (user == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoadingState(message: 'Loading user entitlements…');
     }
 
     return FutureBuilder<_LeaveBundle>(
       future: _bundleFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 80),
-            child: Center(child: CircularProgressIndicator()),
-          );
+          return const AppLoadingState(message: 'Loading leave balances and requests…');
         }
         if (snapshot.hasError || !snapshot.hasData) {
-          return _errorState(snapshot.error);
+          return Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: AppErrorState(error: snapshot.error, onRetry: _reload),
+          );
         }
 
         final bundle = snapshot.data!;
         return DefaultTabController(
           length: 2,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Leave & Work From Home',
-                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                fontWeight: FontWeight.w700,
-                              ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Track balances, submit leave and WFH requests, and complete approvals.',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ],
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.xxxl),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AppPageHeader(
+                  eyebrow: 'Time off & Remote work',
+                  title: 'Leave & Work From Home',
+                  subtitle:
+                      'Track balances, submit leave and WFH requests, and complete approvals.',
+                  actions: [
+                    OutlinedButton.icon(
+                      onPressed: _reload,
+                      icon: const Icon(Icons.refresh_rounded, size: 18),
+                      label: const Text('Reload'),
                     ),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: _reload,
-                    icon: const Icon(Icons.refresh_rounded),
-                    label: const Text('Reload'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              MessageBanner(message: _message, isError: _isError(_message)),
-              if (_message.isNotEmpty) const SizedBox(height: 12),
-              if (bundle.leave.balances.isNotEmpty) ...[
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: bundle.leave.balances.map((balance) {
-                    return SizedBox(
-                      width: 240,
-                      child: Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '${balance.leaveType} · ${balance.year}',
-                                style: Theme.of(context).textTheme.labelSmall,
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                '${formatDays(balance.availableDays)} days',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .headlineSmall
-                                    ?.copyWith(fontWeight: FontWeight.w700),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '${formatDays(balance.usedDays)} / ${formatDays(balance.totalDays)} used',
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 16),
-              ],
-              TabBar(
-                isScrollable: true,
-                tabAlignment: TabAlignment.start,
-                tabs: [
-                  Tab(text: 'Leave Requests (${bundle.leave.applications.length})'),
-                  Tab(text: 'Work From Home (${bundle.wfh.requests.length})'),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: TabBarView(
-                  children: [
-                    _leaveTab(bundle, user),
-                    _wfhTab(bundle, user),
                   ],
                 ),
-              ),
-            ],
+                const SizedBox(height: AppSpacing.md),
+                AppMessageBanner(
+                  message: _message,
+                  isError: _isError(_message),
+                  onDismiss: () => setState(() => _message = ''),
+                ),
+                if (_message.isNotEmpty) const SizedBox(height: AppSpacing.md),
+                if (bundle.leave.balances.isNotEmpty) ...[
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final columns = constraints.maxWidth >= 680
+                          ? 3
+                          : constraints.maxWidth >= 300
+                              ? 2
+                              : 1;
+                      final itemWidth = (constraints.maxWidth -
+                              (columns - 1) * AppSpacing.md) /
+                          columns;
+                      return Wrap(
+                        spacing: AppSpacing.md,
+                        runSpacing: AppSpacing.md,
+                        children: bundle.leave.balances.map((balance) {
+                          return SizedBox(
+                            width: itemWidth,
+                            child: AppCard(
+                              padding: const EdgeInsets.all(AppSpacing.md),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '${balance.leaveType} · ${balance.year}',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.textMuted,
+                                    ),
+                                  ),
+                                  const SizedBox(height: AppSpacing.xs),
+                                  Text(
+                                    '${formatDays(balance.availableDays)} days',
+                                    style: const TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppColors.teal,
+                                    ),
+                                  ),
+                                  const SizedBox(height: AppSpacing.xxs),
+                                  Text(
+                                    '${formatDays(balance.usedDays)} / ${formatDays(balance.totalDays)} days used',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                ],
+                Container(
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: AppRadius.borderMd,
+                    border: Border.fromBorderSide(BorderSide(color: AppColors.outline)),
+                  ),
+                  child: TabBar(
+                    isScrollable: true,
+                    tabAlignment: TabAlignment.start,
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+                    tabs: [
+                      Tab(text: 'Leave Requests (${bundle.leave.applications.length})'),
+                      Tab(text: 'Work From Home (${bundle.wfh.requests.length})'),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      _leaveTab(bundle, user),
+                      _wfhTab(bundle, user),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -344,75 +369,78 @@ class _LeaveScreenState extends ConsumerState<LeaveScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SectionCard(
+          AppSectionCard(
             title: 'Apply for Leave',
             subtitle: 'Submit a new application for L1/L2 approval',
             icon: Icons.calendar_month_rounded,
-            child: Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                SizedBox(
-                  width: 220,
-                  child: DropdownButtonFormField<String>(
-                    initialValue: _leaveType,
-                    isExpanded: true,
-                    decoration: const InputDecoration(labelText: 'Leave Type'),
-                    items: leaveTypes
-                        .map((value) =>
-                            DropdownMenuItem<String>(value: value, child: Text(value)))
-                        .toList(),
-                    onChanged: (value) {
-                      if (value != null) setState(() => _leaveType = value);
-                    },
-                  ),
-                ),
-                SizedBox(
-                  width: 180,
-                  child: DropdownButtonFormField<String>(
-                    initialValue: _dayMode,
-                    isExpanded: true,
-                    decoration: const InputDecoration(labelText: 'Duration Mode'),
-                    items: leaveDayModes
-                        .map((value) =>
-                            DropdownMenuItem<String>(value: value, child: Text(value)))
-                        .toList(),
-                    onChanged: (value) {
-                      if (value != null) setState(() => _dayMode = value);
-                    },
-                  ),
-                ),
-                SizedBox(
-                  width: 180,
-                  child: _dateField('Start Date', _startDate),
-                ),
-                SizedBox(
-                  width: 180,
-                  child: _dateField('End Date', _endDate),
-                ),
-                SizedBox(
-                  width: 380,
-                  child: TextField(
-                    controller: _leaveReason,
-                    maxLines: 3,
-                    decoration: const InputDecoration(
-                      labelText: 'Reason',
-                      alignLabelWithHint: true,
-                    ),
-                  ),
-                ),
-                FilledButton.icon(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final compact = constraints.maxWidth < 620;
+                final selectWidth = compact ? constraints.maxWidth : 220.0;
+                final modeWidth = compact ? constraints.maxWidth : 180.0;
+                final dateWidth = compact ? constraints.maxWidth : 170.0;
+                final submitButton = FilledButton.icon(
                   onPressed: _busy || user.employeeRecordId == null ? null : _submitLeave,
-                  icon: const Icon(Icons.send_rounded),
-                  label: const Text('Submit Leave Application'),
-                ),
-              ],
+                  icon: const Icon(Icons.send_rounded, size: 18),
+                  label: const Text('Submit Application'),
+                );
+
+                return Wrap(
+                  spacing: AppSpacing.md,
+                  runSpacing: AppSpacing.md,
+                  crossAxisAlignment: WrapCrossAlignment.end,
+                  children: [
+                    SizedBox(
+                      width: selectWidth,
+                      child: DropdownButtonFormField<String>(
+                        initialValue: _leaveType,
+                        isExpanded: true,
+                        decoration: const InputDecoration(labelText: 'Leave Type'),
+                        items: leaveTypes
+                            .map((value) =>
+                                DropdownMenuItem<String>(value: value, child: Text(value)))
+                            .toList(),
+                        onChanged: (value) {
+                          if (value != null) setState(() => _leaveType = value);
+                        },
+                      ),
+                    ),
+                    SizedBox(
+                      width: modeWidth,
+                      child: DropdownButtonFormField<String>(
+                        initialValue: _dayMode,
+                        isExpanded: true,
+                        decoration: const InputDecoration(labelText: 'Duration Mode'),
+                        items: leaveDayModes
+                            .map((value) =>
+                                DropdownMenuItem<String>(value: value, child: Text(value)))
+                            .toList(),
+                        onChanged: (value) {
+                          if (value != null) setState(() => _dayMode = value);
+                        },
+                      ),
+                    ),
+                    SizedBox(width: dateWidth, child: _dateField('Start Date', _startDate)),
+                    SizedBox(width: dateWidth, child: _dateField('End Date', _endDate)),
+                    SizedBox(
+                      width: constraints.maxWidth,
+                      child: TextField(
+                        controller: _leaveReason,
+                        maxLines: compact ? 3 : 1,
+                        decoration: const InputDecoration(labelText: 'Reason'),
+                      ),
+                    ),
+                    if (compact)
+                      SizedBox(width: constraints.maxWidth, child: submitButton)
+                    else
+                      submitButton,
+                  ],
+                );
+              },
             ),
           ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
+          const SizedBox(height: AppSpacing.md),
+          InfoTileGrid(
             children: [
               InfoTile(
                 label: 'Calculated duration',
@@ -421,7 +449,7 @@ class _LeaveScreenState extends ConsumerState<LeaveScreen> {
               InfoTile(
                 label: 'Paid preview',
                 value: paymentLabel(previewPaid),
-                valueColor: previewPaid ? Colors.green.shade700 : Colors.orange.shade800,
+                valueColor: previewPaid ? AppColors.success : AppColors.warning,
               ),
               InfoTile(
                 label: 'Available balance',
@@ -431,10 +459,9 @@ class _LeaveScreenState extends ConsumerState<LeaveScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          SectionCard(
-            title: 'Server-managed leave policy',
-            subtitle: 'Rules enforced by the existing API',
+          const SizedBox(height: AppSpacing.lg),
+          AppSectionCard(
+            title: 'Leave Policy',
             icon: Icons.policy_rounded,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -447,8 +474,8 @@ class _LeaveScreenState extends ConsumerState<LeaveScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 16),
-          SectionCard(
+          const SizedBox(height: AppSpacing.lg),
+          AppSectionCard(
             title: 'Leave Applications',
             subtitle: '${applications.length} record(s) in queue',
             icon: Icons.list_alt_rounded,
@@ -463,7 +490,8 @@ class _LeaveScreenState extends ConsumerState<LeaveScreen> {
               },
             ),
             child: applications.isEmpty
-                ? const EmptyState(
+                ? const AppEmptyState(
+                    icon: Icons.event_note_outlined,
                     title: 'No leave applications',
                     description: 'Submitted leave requests will appear here.',
                   )
@@ -479,77 +507,72 @@ class _LeaveScreenState extends ConsumerState<LeaveScreen> {
   }
 
   Widget _leaveCard(LeaveApplication item, AuthUser user) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+    return AppCard(
+      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.employeeName ?? 'Employee',
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                    ),
+                    Text(
+                      '${item.employeeId ?? '—'}${item.departmentName == null ? '' : ' · ${item.departmentName}'}',
+                      style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                    ),
+                  ],
+                ),
+              ),
+              AppStatusChip(label: item.status, compact: true),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          InfoTileGrid(
+            children: [
+              InfoTile(label: 'Leave', value: item.leaveType),
+              InfoTile(label: 'Payment', value: item.paymentLabel),
+              InfoTile(label: 'Dates', value: formatDateRange(item.startDate, item.endDate)),
+              InfoTile(
+                label: 'Duration',
+                value: '${formatDays(item.daysCount)} day(s) · ${item.dayMode}',
+              ),
+              InfoTile(label: 'Approval', value: approvalStage(item.status)),
+              InfoTile(label: 'L1', value: item.l1Status ?? 'Pending'),
+              InfoTile(label: 'L2', value: item.l2Status ?? 'Pending'),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'Reason: ${item.reason}',
+            style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+          ),
+          if (user.canApprove && item.isPending) ...[
+            const SizedBox(height: AppSpacing.md),
             Row(
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item.employeeName ?? 'Employee',
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                      ),
-                      Text(
-                        '${item.employeeId ?? '—'}${item.departmentName == null ? '' : ' · ${item.departmentName}'}',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
+                FilledButton.icon(
+                  onPressed: _busy ? null : () => _leaveAction(item, true),
+                  icon: const Icon(Icons.check_rounded, size: 18),
+                  label: const Text('Approve'),
                 ),
-                StatusChip(label: item.status),
+                const SizedBox(width: AppSpacing.sm),
+                OutlinedButton.icon(
+                  onPressed: _busy ? null : () => _leaveAction(item, false),
+                  icon: const Icon(Icons.close_rounded, size: 18),
+                  style: OutlinedButton.styleFrom(foregroundColor: AppColors.error),
+                  label: const Text('Reject'),
+                ),
               ],
             ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                InfoTile(label: 'Leave', value: item.leaveType),
-                InfoTile(label: 'Payment', value: item.paymentLabel),
-                InfoTile(label: 'Dates', value: formatDateRange(item.startDate, item.endDate)),
-                InfoTile(
-                  label: 'Duration',
-                  value: '${formatDays(item.daysCount)} day(s) · ${item.dayMode}',
-                ),
-                InfoTile(label: 'Approval', value: approvalStage(item.status)),
-                InfoTile(label: 'L1', value: item.l1Status ?? 'Pending'),
-                InfoTile(label: 'L2', value: item.l2Status ?? 'Pending'),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Text(
-              'Reason: ${item.reason}',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            if (user.canApprove && item.isPending) ...[
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  FilledButton.tonalIcon(
-                    onPressed: _busy ? null : () => _leaveAction(item, true),
-                    icon: const Icon(Icons.check_rounded),
-                    label: const Text('Approve'),
-                  ),
-                  const SizedBox(width: 8),
-                  OutlinedButton.icon(
-                    onPressed: _busy ? null : () => _leaveAction(item, false),
-                    icon: const Icon(Icons.close_rounded),
-                    label: const Text('Reject'),
-                  ),
-                ],
-              ),
-            ],
           ],
-        ),
+        ],
       ),
     );
   }
@@ -565,39 +588,49 @@ class _LeaveScreenState extends ConsumerState<LeaveScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SectionCard(
+          AppSectionCard(
             title: 'Request Work From Home',
             subtitle: 'Share your remote work plan and deliverables',
             icon: Icons.home_work_rounded,
-            child: Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              crossAxisAlignment: WrapCrossAlignment.end,
-              children: [
-                SizedBox(width: 180, child: _dateField('WFH Date', _wfhDate)),
-                SizedBox(
-                  width: 420,
-                  child: TextField(
-                    controller: _wfhReason,
-                    maxLines: 3,
-                    decoration: const InputDecoration(
-                      labelText: 'Deliverables / Reason',
-                      alignLabelWithHint: true,
-                    ),
-                  ),
-                ),
-                FilledButton.icon(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final compact = constraints.maxWidth < 620;
+                final submitButton = FilledButton.icon(
                   onPressed: _busy || user.employeeRecordId == null ? null : _submitWfh,
-                  icon: const Icon(Icons.send_rounded),
+                  icon: const Icon(Icons.send_rounded, size: 18),
                   label: const Text('Submit WFH Request'),
-                ),
-              ],
+                );
+                return Wrap(
+                  spacing: AppSpacing.md,
+                  runSpacing: AppSpacing.md,
+                  crossAxisAlignment: WrapCrossAlignment.end,
+                  children: [
+                    SizedBox(
+                      width: compact ? constraints.maxWidth : 180.0,
+                      child: _dateField('WFH Date', _wfhDate),
+                    ),
+                    SizedBox(
+                      width: constraints.maxWidth,
+                      child: TextField(
+                        controller: _wfhReason,
+                        maxLines: compact ? 3 : 1,
+                        decoration: const InputDecoration(
+                          labelText: 'Deliverables / Reason',
+                        ),
+                      ),
+                    ),
+                    if (compact)
+                      SizedBox(width: constraints.maxWidth, child: submitButton)
+                    else
+                      submitButton,
+                  ],
+                );
+              },
             ),
           ),
-          const SizedBox(height: 10),
-          SectionCard(
-            title: 'WFH policy',
-            subtitle: 'Enforced by the existing backend',
+          const SizedBox(height: AppSpacing.md),
+          AppSectionCard(
+            title: 'WFH Policy',
             icon: Icons.policy_rounded,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -608,8 +641,8 @@ class _LeaveScreenState extends ConsumerState<LeaveScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 16),
-          SectionCard(
+          const SizedBox(height: AppSpacing.lg),
+          AppSectionCard(
             title: 'Work From Home Requests',
             subtitle: '${requests.length} record(s)',
             icon: Icons.home_rounded,
@@ -624,7 +657,8 @@ class _LeaveScreenState extends ConsumerState<LeaveScreen> {
               },
             ),
             child: requests.isEmpty
-                ? const EmptyState(
+                ? const AppEmptyState(
+                    icon: Icons.home_work_outlined,
                     title: 'No WFH requests',
                     description: 'Submitted work-from-home requests will appear here.',
                   )
@@ -640,77 +674,72 @@ class _LeaveScreenState extends ConsumerState<LeaveScreen> {
   }
 
   Widget _wfhCard(WfhRequest item, AuthUser user) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+    return AppCard(
+      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.employeeName ?? 'Employee',
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                    ),
+                    Text(
+                      item.employeeId ?? '—',
+                      style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                    ),
+                  ],
+                ),
+              ),
+              AppStatusChip(label: item.status, compact: true),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          InfoTileGrid(
+            children: [
+              InfoTile(label: 'WFH Date', value: item.wfhDate),
+              InfoTile(label: 'Reviewed by', value: item.reviewedBy ?? 'Pending'),
+              InfoTile(label: 'Submitted', value: item.createdAt.isEmpty ? '—' : item.createdAt.substring(0, 10)),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'Reason: ${item.reason}',
+            style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+          ),
+          if (item.reviewComment != null) ...[
+            const SizedBox(height: AppSpacing.xxs),
+            Text(
+              'Review comment: ${item.reviewComment}',
+              style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+            ),
+          ],
+          if (user.canApprove && item.status == 'Pending') ...[
+            const SizedBox(height: AppSpacing.md),
             Row(
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item.employeeName ?? 'Employee',
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                      ),
-                      Text(
-                        item.employeeId ?? '—',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
+                FilledButton.icon(
+                  onPressed: _busy ? null : () => _wfhAction(item, true),
+                  icon: const Icon(Icons.check_rounded, size: 18),
+                  label: const Text('Approve'),
                 ),
-                StatusChip(label: item.status),
+                const SizedBox(width: AppSpacing.sm),
+                OutlinedButton.icon(
+                  onPressed: _busy ? null : () => _wfhAction(item, false),
+                  icon: const Icon(Icons.close_rounded, size: 18),
+                  style: OutlinedButton.styleFrom(foregroundColor: AppColors.error),
+                  label: const Text('Reject'),
+                ),
               ],
             ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                InfoTile(label: 'WFH Date', value: item.wfhDate),
-                InfoTile(label: 'Reviewed by', value: item.reviewedBy ?? 'Pending'),
-                InfoTile(label: 'Submitted', value: item.createdAt.isEmpty ? '—' : item.createdAt.substring(0, 10)),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Text(
-              'Reason: ${item.reason}',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            if (item.reviewComment != null) ...[
-              const SizedBox(height: 6),
-              Text(
-                'Review comment: ${item.reviewComment}',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
-            if (user.canApprove && item.status == 'Pending') ...[
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  FilledButton.tonalIcon(
-                    onPressed: _busy ? null : () => _wfhAction(item, true),
-                    icon: const Icon(Icons.check_rounded),
-                    label: const Text('Approve'),
-                  ),
-                  const SizedBox(width: 8),
-                  OutlinedButton.icon(
-                    onPressed: _busy ? null : () => _wfhAction(item, false),
-                    icon: const Icon(Icons.close_rounded),
-                    label: const Text('Reject'),
-                  ),
-                ],
-              ),
-            ],
           ],
-        ),
+        ],
       ),
     );
   }
@@ -723,7 +752,7 @@ class _LeaveScreenState extends ConsumerState<LeaveScreen> {
         labelText: label,
         suffixIcon: IconButton(
           tooltip: 'Choose date',
-          icon: const Icon(Icons.date_range_rounded),
+          icon: const Icon(Icons.date_range_rounded, size: 20),
           onPressed: () => _pickDate(controller),
         ),
       ),
@@ -733,37 +762,19 @@ class _LeaveScreenState extends ConsumerState<LeaveScreen> {
 
   Widget _policyText(String text) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.check_rounded, size: 16, color: Colors.green),
-          const SizedBox(width: 6),
+          const Icon(Icons.check_circle_outline_rounded, size: 16, color: AppColors.teal),
+          const SizedBox(width: AppSpacing.xs),
           Expanded(
-            child: Text(text, style: Theme.of(context).textTheme.bodySmall),
+            child: Text(
+              text,
+              style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+            ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _errorState(Object? error) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          children: [
-            const Icon(Icons.cloud_off_rounded, size: 42, color: Colors.orange),
-            const SizedBox(height: 12),
-            Text(_messageOf(error), textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: _reload,
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Try again'),
-            ),
-          ],
-        ),
       ),
     );
   }

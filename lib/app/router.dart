@@ -14,7 +14,6 @@ import '../features/employees/presentation/employee_screen.dart';
 import '../features/leave/presentation/leave_screen.dart';
 import '../features/organization/presentation/organization_screen.dart';
 import '../features/reports/presentation/reports_screen.dart';
-import '../shared/widgets/placeholder_screen.dart';
 import 'app_shell.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -104,15 +103,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: '/reports',
             builder: (context, state) => const ReportsScreen(),
           ),
-          GoRoute(
-            path: '/security',
-            builder: (context, state) => const PlaceholderScreen(
-              title: 'Security & Notifications',
-              description:
-                  'Notifications, read-all controls, and audit logs will be migrated in a later phase.',
-              icon: Icons.shield_outlined,
-            ),
-          ),
         ],
       ),
     ],
@@ -150,7 +140,7 @@ bool _isAuthRoute(String location) {
 
 bool canAccessRoute(String location, AuthUser user) {
   if (user.isSuperAdmin) {
-    return location == '/dashboard' || location == '/security';
+    return location == '/dashboard';
   }
   return appNavItemsFor(user).any((item) => item.path == location);
 }

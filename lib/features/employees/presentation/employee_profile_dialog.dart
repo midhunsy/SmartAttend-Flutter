@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_design.dart';
+import '../../../shared/widgets/app_card.dart';
+import '../../../shared/widgets/app_state_widgets.dart';
+import '../../../shared/widgets/app_status_chip.dart';
 import '../../attendance/presentation/widgets/attendance_widgets.dart';
+import '../core/employee_validation.dart';
 import '../data/employee_repository.dart';
 import '../data/models/employee_models.dart';
-import '../core/employee_validation.dart';
 
 class EmployeeProfileDialog extends ConsumerStatefulWidget {
   const EmployeeProfileDialog({super.key, required this.summary});
@@ -38,8 +43,8 @@ class _EmployeeProfileDialogState extends ConsumerState<EmployeeProfileDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-      constraints: const BoxConstraints(maxWidth: 760, maxHeight: 860),
+      insetPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.lg),
+      constraints: const BoxConstraints(maxWidth: 720, maxHeight: 860),
       title: Text('Employee Profile · ${widget.summary.employeeId}'),
       content: SizedBox(
         width: double.maxFinite,
@@ -47,22 +52,13 @@ class _EmployeeProfileDialogState extends ConsumerState<EmployeeProfileDialog> {
           future: _detailFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 60),
-                child: Center(child: CircularProgressIndicator()),
-              );
+              return const AppLoadingState(message: 'Fetching full profile details…');
             }
             if (snapshot.hasError || !snapshot.hasData) {
               return Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(snapshot.error?.toString() ?? 'Unable to load profile.'),
-                  const SizedBox(height: 12),
-                  FilledButton.icon(
-                    onPressed: _reload,
-                    icon: const Icon(Icons.refresh_rounded),
-                    label: const Text('Try again'),
-                  ),
+                  AppErrorState(error: snapshot.error, onRetry: _reload),
                 ],
               );
             }
@@ -75,12 +71,17 @@ class _EmployeeProfileDialogState extends ConsumerState<EmployeeProfileDialog> {
                     children: [
                       CircleAvatar(
                         radius: 28,
+                        backgroundColor: AppColors.tealLight,
                         child: Text(
                           _initials(detail.employeeName),
-                          style: const TextStyle(fontWeight: FontWeight.w700),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.teal,
+                            fontSize: 18,
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 14),
+                      const SizedBox(width: AppSpacing.md),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -90,19 +91,20 @@ class _EmployeeProfileDialogState extends ConsumerState<EmployeeProfileDialog> {
                               style: Theme.of(context)
                                   .textTheme
                                   .titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.w700),
+                                  ?.copyWith(fontWeight: FontWeight.w800, fontSize: 16),
                             ),
+                            const SizedBox(height: AppSpacing.xxs),
                             Text(
                               '${detail.designation} · ${detail.roleName}',
-                              style: Theme.of(context).textTheme.bodySmall,
+                              style: const TextStyle(fontSize: 13, color: AppColors.textMuted),
                             ),
                           ],
                         ),
                       ),
-                      StatusChip(label: detail.accountStatusLabel),
+                      AppStatusChip(label: detail.accountStatusLabel, compact: true),
                     ],
                   ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: AppSpacing.lg),
                   _group(
                     'Identity & Login',
                     [
@@ -114,16 +116,20 @@ class _EmployeeProfileDialogState extends ConsumerState<EmployeeProfileDialog> {
                         label: 'Temporary Password',
                         value: detail.mustChangePassword ? 'Pending change' : 'Changed',
                         valueColor:
-                            detail.mustChangePassword ? Colors.orange.shade800 : Colors.green.shade700,
+                            detail.mustChangePassword ? AppColors.warning : AppColors.success,
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.md),
                   _group(
                     'Contact & Employment',
                     [
                       InfoTile(label: 'Email', value: detail.email),
                       InfoTile(label: 'Mobile', value: detail.mobile),
+                      InfoTile(
+                        label: 'Address',
+                        value: (detail.address ?? '').trim().isEmpty ? 'Not provided' : detail.address!.trim(),
+                      ),
                       InfoTile(label: 'Department', value: widget.summary.departmentLabel),
                       InfoTile(label: 'Joining Date', value: detail.joiningDate),
                       InfoTile(label: 'Employment Type', value: detail.employmentType),
@@ -131,9 +137,9 @@ class _EmployeeProfileDialogState extends ConsumerState<EmployeeProfileDialog> {
                       InfoTile(label: 'Shift', value: widget.summary.shiftLabel),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.md),
                   _group(
-                    'Reporting',
+                    'Reporting Hierarchy',
                     [
                       InfoTile(
                         label: 'Reporting Manager',
@@ -147,7 +153,7 @@ class _EmployeeProfileDialogState extends ConsumerState<EmployeeProfileDialog> {
                   ),
                   if (detail.profilePicture != null &&
                       detail.profilePicture!.isNotEmpty) ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpacing.md),
                     _group('Profile Picture', [
                       InfoTile(label: 'URL', value: detail.profilePicture!),
                     ]),
@@ -168,13 +174,24 @@ class _EmployeeProfileDialogState extends ConsumerState<EmployeeProfileDialog> {
   }
 
   Widget _group(String title, List<Widget> tiles) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: Theme.of(context).textTheme.titleSmall),
-        const SizedBox(height: 8),
-        Wrap(spacing: 10, runSpacing: 10, children: tiles),
-      ],
+    return AppCard(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title.toUpperCase(),
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.8,
+              color: AppColors.teal,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          InfoTileGrid(children: tiles),
+        ],
+      ),
     );
   }
 

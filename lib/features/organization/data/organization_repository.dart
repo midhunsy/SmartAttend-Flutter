@@ -66,18 +66,119 @@ class OrganizationRepository {
     }
   }
 
-  Future<String> addShift({
+  Future<String> saveShift({
+    String? shiftId,
     required String name,
     required String startTime,
     required String endTime,
+    required double workingHours,
+    required int graceMinutes,
+    required int breakMinutes,
   }) async {
+    final body = <String, dynamic>{
+      'name': name.trim(),
+      'startTime': startTime.trim(),
+      'endTime': endTime.trim(),
+      'workingHours': workingHours,
+      'graceMinutes': graceMinutes,
+      'breakMinutes': breakMinutes,
+    };
     try {
-      final response = await _dio.post<Map<String, dynamic>>('/api/shifts', data: {
-        'name': name.trim(),
-        'startTime': startTime.trim(),
-        'endTime': endTime.trim(),
-      });
-      return response.data?['shiftId']?.toString() ?? '';
+      final response = shiftId == null
+          ? await _dio.post<Map<String, dynamic>>('/api/shifts', data: body)
+          : await _dio.patch<Map<String, dynamic>>(
+              '/api/shifts/${Uri.encodeComponent(shiftId)}',
+              data: body,
+            );
+      return response.data?['shiftId']?.toString() ?? shiftId ?? '';
+    } on DioException catch (error) {
+      throw mapDioException(error);
+    }
+  }
+
+  Future<void> deleteShift(String shiftId) async {
+    try {
+      await _dio.delete<Map<String, dynamic>>(
+        '/api/shifts/${Uri.encodeComponent(shiftId)}',
+      );
+    } on DioException catch (error) {
+      throw mapDioException(error);
+    }
+  }
+
+  Future<String> saveShiftAssignment({
+    String? assignmentId,
+    required String scopeType,
+    String? scopeId,
+    required String shiftId,
+    required String startDate,
+    required String endDate,
+    String? effectiveDate,
+  }) async {
+    final body = <String, dynamic>{
+      'scopeType': scopeType,
+      'scopeId': scopeId ?? '',
+      'shiftId': shiftId,
+      'startDate': startDate.trim(),
+      'endDate': endDate.trim(),
+      'effectiveDate': effectiveDate?.trim() ?? '',
+    };
+    try {
+      if (assignmentId == null) {
+        final response = await _dio.post<Map<String, dynamic>>('/api/shift-assignments', data: body);
+        return response.data?['assignmentId']?.toString() ?? '';
+      }
+      await _dio.patch<Map<String, dynamic>>(
+        '/api/shift-assignments/${Uri.encodeComponent(assignmentId)}',
+        data: body,
+      );
+      return assignmentId;
+    } on DioException catch (error) {
+      throw mapDioException(error);
+    }
+  }
+
+  Future<void> deleteShiftAssignment(String assignmentId) async {
+    try {
+      await _dio.delete<Map<String, dynamic>>(
+        '/api/shift-assignments/${Uri.encodeComponent(assignmentId)}',
+      );
+    } on DioException catch (error) {
+      throw mapDioException(error);
+    }
+  }
+
+  Future<String> saveLunchBreakConfig({
+    String? configId,
+    required String scopeType,
+    String? scopeId,
+    required String breakType,
+    required int durationMinutes,
+    String? windowStart,
+    String? windowEnd,
+    int? maxDurationMinutes,
+    required bool isActive,
+  }) async {
+    final body = <String, dynamic>{
+      'scopeType': scopeType,
+      'scopeId': scopeId ?? '',
+      'breakType': breakType,
+      'durationMinutes': durationMinutes,
+      'windowStart': windowStart?.trim() ?? '',
+      'windowEnd': windowEnd?.trim() ?? '',
+      'maxDurationMinutes': maxDurationMinutes,
+      'isActive': isActive,
+    };
+    try {
+      if (configId == null) {
+        final response = await _dio.post<Map<String, dynamic>>('/api/lunch-break-configs', data: body);
+        return response.data?['configId']?.toString() ?? '';
+      }
+      await _dio.patch<Map<String, dynamic>>(
+        '/api/lunch-break-configs/${Uri.encodeComponent(configId)}',
+        data: body,
+      );
+      return configId;
     } on DioException catch (error) {
       throw mapDioException(error);
     }

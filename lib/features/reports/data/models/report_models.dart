@@ -86,6 +86,8 @@ class AttendanceReportRow {
   final int halfDays;
   final int wfhDays;
   final double totalHours;
+
+  int get absentDays => (recordCount - presentDays - wfhDays).clamp(0, recordCount);
 }
 
 class DailyAttendanceRow {

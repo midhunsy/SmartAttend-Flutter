@@ -69,12 +69,6 @@ class HomeScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text(AppConfig.appName),
         actions: [
-          IconButton(
-            tooltip: 'Notifications',
-            icon: const Icon(Icons.notifications_none_rounded),
-            onPressed: () {},
-          ),
-          const SizedBox(width: 8),
           const Padding(
             padding: EdgeInsets.only(right: 16),
             child: CircleAvatar(
@@ -101,7 +95,7 @@ class HomeScreen extends ConsumerWidget {
                   Text('Workspace overview', style: theme.textTheme.titleLarge),
                   const SizedBox(height: 4),
                   Text(
-                    'Choose a section to explore the foundation prepared for the Flutter migration.',
+                    'Open a module to view live tenant data.',
                     style: theme.textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 16),
@@ -169,28 +163,8 @@ class _HeroCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: const Text(
-                    'FLUTTER FOUNDATION',
-                    style: TextStyle(
-                      color: AppColors.mint,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.1,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
                 const Text(
-                  'A clean start for SmartAttend',
+                  'SmartAttend workspace',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 26,
@@ -200,7 +174,7 @@ class _HeroCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Modern attendance management with a scalable Dart architecture.',
+                  'Attendance, people and approvals in one place.',
                   style: TextStyle(
                     color: Color(0xFFCBD5E1),
                     fontSize: 13,
@@ -322,7 +296,7 @@ class _FoundationCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Foundation ready',
+                  'Live tenant data',
                   style: TextStyle(
                     color: AppColors.emeraldDark,
                     fontSize: 15,
@@ -331,8 +305,7 @@ class _FoundationCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Riverpod, Dio, GoRouter, Geolocator, flutter_map and secure '
-                  'storage are configured. Feature migration comes next.',
+                  'Every module reads from the SmartAttend APIs. No placeholder records are shown.',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: AppColors.emeraldDark,
                       ),
