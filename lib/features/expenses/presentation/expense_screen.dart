@@ -11,6 +11,7 @@ import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_page_header.dart';
 import '../../../shared/widgets/app_state_widgets.dart';
 import '../../../shared/widgets/app_status_chip.dart';
+import '../../../shared/widgets/responsive.dart';
 import '../../attendance/presentation/widgets/attendance_widgets.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../auth/data/models/auth_user.dart';
@@ -156,16 +157,9 @@ class _ExpenseScreenState extends ConsumerState<ExpenseScreen> {
 
     return DefaultTabController(
       length: tabs.length,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.lg,
-          AppSpacing.lg,
-          AppSpacing.lg,
-          AppSpacing.xxxl,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      child: TabbedPage(
+        tabs: tabs.map((label) => Tab(text: label)).toList(),
+        header: [
             AppPageHeader(
               eyebrow: 'Business expenses',
               title: 'Expense Claims',
@@ -185,33 +179,12 @@ class _ExpenseScreenState extends ConsumerState<ExpenseScreen> {
               onDismiss: () => setState(() => _message = ''),
             ),
             if (_message.isNotEmpty) const SizedBox(height: AppSpacing.md),
-            Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: AppRadius.borderMd,
-                border: Border.fromBorderSide(
-                  BorderSide(color: AppColors.outline),
-                ),
-              ),
-              child: TabBar(
-                isScrollable: true,
-                tabAlignment: TabAlignment.start,
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
-                tabs: tabs.map((label) => Tab(text: label)).toList(),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            Expanded(
-              child: TabBarView(
-                children: [
-                  _newClaimTab(),
-                  _claimsTab(user),
-                  if (user.canApprove) _reportsTab(),
-                ],
-              ),
-            ),
-          ],
-        ),
+        ],
+        children: [
+          _newClaimTab(),
+          _claimsTab(user),
+          if (user.canApprove) _reportsTab(),
+        ],
       ),
     );
   }
@@ -353,6 +326,7 @@ class _ExpenseScreenState extends ConsumerState<ExpenseScreen> {
                 ),
             ],
           ),
+          const SizedBox(height: AppSpacing.md),
           LayoutBuilder(
             builder: (context, constraints) {
               final narrow = constraints.maxWidth < 620;
@@ -416,7 +390,10 @@ class _ExpenseScreenState extends ConsumerState<ExpenseScreen> {
             },
           ),
           const SizedBox(height: AppSpacing.md),
-          Row(
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.xs,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               OutlinedButton.icon(
                 onPressed: _busy ? null : () => _attachReceipt(index),
@@ -425,16 +402,13 @@ class _ExpenseScreenState extends ConsumerState<ExpenseScreen> {
                   item.hasReceipt ? 'Replace receipt' : 'Attach receipt',
                 ),
               ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(
-                  item.receiptFileName ?? 'PDF, JPG, PNG, or WEBP · max 5MB',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textMuted,
-                  ),
+              Text(
+                item.receiptFileName ?? 'PDF, JPG, PNG, or WEBP · max 5MB',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textMuted,
                 ),
               ),
             ],
@@ -522,17 +496,24 @@ class _ExpenseScreenState extends ConsumerState<ExpenseScreen> {
             color: AppColors.textPrimary,
           ),
         ),
-        subtitle: Text(
-          '${claim.visitDate} · ${claim.location.isEmpty ? '—' : claim.location}',
-          style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
-        ),
-        trailing: Row(
+        // Status sits under the details (not beside the title) so the
+        // employee name keeps the full width on phones.
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
+            const SizedBox(height: AppSpacing.xxs),
+            Text(
+              '${claim.visitDate} · ${claim.location.isEmpty ? '—' : claim.location}',
+              style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+            ),
+            const SizedBox(height: AppSpacing.xs),
             AppStatusChip(label: status, compact: true),
-            const SizedBox(width: AppSpacing.xs),
-            const Icon(Icons.expand_more_rounded, color: AppColors.textMuted),
           ],
+        ),
+        trailing: const Icon(
+          Icons.expand_more_rounded,
+          color: AppColors.textMuted,
         ),
         children: [
           Padding(

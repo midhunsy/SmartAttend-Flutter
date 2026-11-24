@@ -7,6 +7,7 @@ import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_page_header.dart';
 import '../../../shared/widgets/app_state_widgets.dart';
 import '../../../shared/widgets/app_status_chip.dart';
+import '../../../shared/widgets/responsive.dart';
 import '../../attendance/presentation/widgets/attendance_widgets.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../auth/data/models/auth_user.dart';
@@ -232,11 +233,12 @@ class _LeaveScreenState extends ConsumerState<LeaveScreen> {
         final bundle = snapshot.data!;
         return DefaultTabController(
           length: 2,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.xxxl),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+          child: TabbedPage(
+            tabs: [
+              Tab(text: 'Leave Requests (${bundle.leave.applications.length})'),
+              Tab(text: 'Work From Home (${bundle.wfh.requests.length})'),
+            ],
+            header: [
                 AppPageHeader(
                   eyebrow: 'Time off & Remote work',
                   title: 'Leave & Work From Home',
@@ -312,35 +314,12 @@ class _LeaveScreenState extends ConsumerState<LeaveScreen> {
                       );
                     },
                   ),
-                  const SizedBox(height: AppSpacing.lg),
                 ],
-                Container(
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: AppRadius.borderMd,
-                    border: Border.fromBorderSide(BorderSide(color: AppColors.outline)),
-                  ),
-                  child: TabBar(
-                    isScrollable: true,
-                    tabAlignment: TabAlignment.start,
-                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
-                    tabs: [
-                      Tab(text: 'Leave Requests (${bundle.leave.applications.length})'),
-                      Tab(text: 'Work From Home (${bundle.wfh.requests.length})'),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                Expanded(
-                  child: TabBarView(
-                    children: [
-                      _leaveTab(bundle, user),
-                      _wfhTab(bundle, user),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+            ],
+            children: [
+              _leaveTab(bundle, user),
+              _wfhTab(bundle, user),
+            ],
           ),
         );
       },
@@ -555,14 +534,15 @@ class _LeaveScreenState extends ConsumerState<LeaveScreen> {
           ),
           if (user.canApprove && item.isPending) ...[
             const SizedBox(height: AppSpacing.md),
-            Row(
+            Wrap(
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.sm,
               children: [
                 FilledButton.icon(
                   onPressed: _busy ? null : () => _leaveAction(item, true),
                   icon: const Icon(Icons.check_rounded, size: 18),
                   label: const Text('Approve'),
                 ),
-                const SizedBox(width: AppSpacing.sm),
                 OutlinedButton.icon(
                   onPressed: _busy ? null : () => _leaveAction(item, false),
                   icon: const Icon(Icons.close_rounded, size: 18),
@@ -722,14 +702,15 @@ class _LeaveScreenState extends ConsumerState<LeaveScreen> {
           ],
           if (user.canApprove && item.status == 'Pending') ...[
             const SizedBox(height: AppSpacing.md),
-            Row(
+            Wrap(
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.sm,
               children: [
                 FilledButton.icon(
                   onPressed: _busy ? null : () => _wfhAction(item, true),
                   icon: const Icon(Icons.check_rounded, size: 18),
                   label: const Text('Approve'),
                 ),
-                const SizedBox(width: AppSpacing.sm),
                 OutlinedButton.icon(
                   onPressed: _busy ? null : () => _wfhAction(item, false),
                   icon: const Icon(Icons.close_rounded, size: 18),

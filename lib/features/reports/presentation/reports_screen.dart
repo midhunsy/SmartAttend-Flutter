@@ -8,6 +8,7 @@ import '../../../core/network/api_exception.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_kpi_card.dart';
 import '../../../shared/widgets/app_page_header.dart';
+import '../../../shared/widgets/responsive.dart';
 import '../../../shared/widgets/app_state_widgets.dart';
 import '../../../shared/widgets/app_status_chip.dart';
 import '../../attendance/core/geo_utils.dart';
@@ -170,55 +171,58 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
       return _accessDenied();
     }
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, 0),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1200),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    final header = <Widget>[
+      AppPageHeader(
+        eyebrow: 'Workforce analytics',
+        title: 'Reports & Payroll Analytics',
+        subtitle: 'Live payroll, attendance, leave and WFH data.',
+        actions: [
+          OutlinedButton.icon(
+            onPressed: _reload,
+            icon: const Icon(Icons.refresh_rounded, size: 18),
+            label: const Text('Reload'),
+          ),
+        ],
+      ),
+      const SizedBox(height: AppSpacing.md),
+      _controls(user),
+      if (_message.isNotEmpty) ...[
+        const SizedBox(height: AppSpacing.md),
+        AppMessageBanner(
+          message: _message,
+          isError: true,
+          onDismiss: () => setState(() => _message = ''),
+        ),
+      ],
+    ];
+
+    return FutureBuilder<_ReportsBundle>(
+      future: _bundleFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return PageBody(
+            maxWidth: 1200,
             children: [
-              AppPageHeader(
-                eyebrow: 'Workforce analytics',
-                title: 'Reports & Payroll Analytics',
-                subtitle: 'Live payroll, attendance, leave and WFH data.',
-                actions: [
-                  OutlinedButton.icon(
-                    onPressed: _reload,
-                    icon: const Icon(Icons.refresh_rounded, size: 18),
-                    label: const Text('Reload'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.md),
-              _controls(user),
-              if (_message.isNotEmpty) ...[
-                const SizedBox(height: AppSpacing.md),
-                AppMessageBanner(
-                  message: _message,
-                  isError: true,
-                  onDismiss: () => setState(() => _message = ''),
-                ),
-              ],
-              const SizedBox(height: AppSpacing.lg),
-              Expanded(
-                child: FutureBuilder<_ReportsBundle>(
-                  future: _bundleFuture,
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const AppLoadingState(message: 'Calculating payroll days, attendance logs, and leave statistics…');
-                    }
-                    if (snapshot.hasError || !snapshot.hasData) {
-                      return AppErrorState(error: snapshot.error, onRetry: _reload);
-                    }
-                    return _reportsView(snapshot.data!, user);
-                  },
-                ),
+              ...header,
+              const AppLoadingState(
+                message:
+                    'Calculating payroll days, attendance logs, and leave statistics…',
               ),
             ],
-          ),
-        ),
-      ),
+          );
+        }
+        if (snapshot.hasError || !snapshot.hasData) {
+          return PageBody(
+            maxWidth: 1200,
+            children: [
+              ...header,
+              const SizedBox(height: AppSpacing.lg),
+              AppErrorState(error: snapshot.error, onRetry: _reload),
+            ],
+          );
+        }
+        return _reportsView(snapshot.data!, user, header);
+      },
     );
   }
 
@@ -319,7 +323,11 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
     );
   }
 
-  Widget _reportsView(_ReportsBundle bundle, AuthUser user) {
+  Widget _reportsView(
+    _ReportsBundle bundle,
+    AuthUser user,
+    List<Widget> header,
+  ) {
     final records = bundle.attendance
         .expand((data) => data.records)
         .where((record) => bundle.range.contains(record.attendanceDate))
@@ -335,41 +343,24 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
 
     return DefaultTabController(
       length: 3,
-      child: Column(
+      child: TabbedPage(
+        maxWidth: 1200,
+        header: header,
+        tabs: const [
+          Tab(text: 'Payroll Summary'),
+          Tab(text: 'Attendance Analytics'),
+          Tab(text: 'Leave & WFH Reports'),
+        ],
         children: [
-          Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: AppRadius.borderMd,
-              border: Border.fromBorderSide(BorderSide(color: AppColors.outline)),
-            ),
-            child: const TabBar(
-              isScrollable: true,
-              tabAlignment: TabAlignment.start,
-              padding: EdgeInsets.symmetric(horizontal: AppSpacing.xs),
-              tabs: [
-                Tab(text: 'Payroll Summary'),
-                Tab(text: 'Attendance Analytics'),
-                Tab(text: 'Leave & WFH Reports'),
-              ],
-            ),
+          _payrollTab(bundle, user),
+          _attendanceTab(
+            bundle,
+            records,
+            employeeSummaries,
+            departmentSummaries,
+            dailySummaries,
           ),
-          const SizedBox(height: AppSpacing.lg),
-          Expanded(
-            child: TabBarView(
-              children: [
-                _payrollTab(bundle, user),
-                _attendanceTab(
-                  bundle,
-                  records,
-                  employeeSummaries,
-                  departmentSummaries,
-                  dailySummaries,
-                ),
-                _leaveTab(bundle, leaveSummary, wfhSummary),
-              ],
-            ),
-          ),
+          _leaveTab(bundle, leaveSummary, wfhSummary),
         ],
       ),
     );

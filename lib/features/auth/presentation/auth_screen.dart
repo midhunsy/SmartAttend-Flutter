@@ -613,8 +613,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               : const Text('Sign in'),
         ),
         const SizedBox(height: AppSpacing.lg),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+        Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             const Text('New to SmartAttend? ', style: TextStyle(color: AppColors.textSecondary)),
             TextButton(

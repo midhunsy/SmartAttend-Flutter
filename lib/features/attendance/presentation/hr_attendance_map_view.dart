@@ -11,7 +11,8 @@ class HRAttendanceMapView extends ConsumerStatefulWidget {
   const HRAttendanceMapView({super.key});
 
   @override
-  ConsumerState<HRAttendanceMapView> createState() => _HRAttendanceMapViewState();
+  ConsumerState<HRAttendanceMapView> createState() =>
+      _HRAttendanceMapViewState();
 }
 
 class _HRAttendanceMapViewState extends ConsumerState<HRAttendanceMapView> {
@@ -29,7 +30,9 @@ class _HRAttendanceMapViewState extends ConsumerState<HRAttendanceMapView> {
   }
 
   Future<EmployeeMapData> _load() {
-    return ref.read(attendanceRepositoryProvider).loadEmployeeMap(
+    return ref
+        .read(attendanceRepositoryProvider)
+        .loadEmployeeMap(
           date: _date,
           departmentId: _departmentId,
           employeeRecordId: _employeeRecordId,
@@ -85,17 +88,36 @@ class _HRAttendanceMapViewState extends ConsumerState<HRAttendanceMapView> {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    InfoTile(label: 'Employee ID', value: marker.employeeId, mono: true),
-                    InfoTile(label: 'Date', value: marker.attendanceDate),
-                    InfoTile(label: 'Check-in', value: formatLocalTime(marker.checkInTime)),
-                    InfoTile(label: 'Check-out', value: formatLocalTime(marker.checkOutTime)),
                     InfoTile(
-                      label: 'Check-in GPS',
-                      value: formatCoordinatePair(marker.latitude, marker.longitude),
+                      label: 'Employee ID',
+                      value: marker.employeeId,
                       mono: true,
                     ),
-                    InfoTile(label: 'Accuracy', value: formatAccuracy(marker.accuracyMeters)),
-                    InfoTile(label: 'Distance', value: _distance(marker.distanceMeters)),
+                    InfoTile(label: 'Date', value: marker.attendanceDate),
+                    InfoTile(
+                      label: 'Check-in',
+                      value: formatLocalTime(marker.checkInTime),
+                    ),
+                    InfoTile(
+                      label: 'Check-out',
+                      value: formatLocalTime(marker.checkOutTime),
+                    ),
+                    InfoTile(
+                      label: 'Check-in GPS',
+                      value: formatCoordinatePair(
+                        marker.latitude,
+                        marker.longitude,
+                      ),
+                      mono: true,
+                    ),
+                    InfoTile(
+                      label: 'Accuracy',
+                      value: formatAccuracy(marker.accuracyMeters),
+                    ),
+                    InfoTile(
+                      label: 'Distance',
+                      value: _distance(marker.distanceMeters),
+                    ),
                     InfoTile(
                       label: 'Geofence',
                       value: marker.geofenceStatus ?? 'Unavailable',
@@ -158,101 +180,115 @@ class _HRAttendanceMapViewState extends ConsumerState<HRAttendanceMapView> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                OutlinedButton.icon(
-                  onPressed: _pickDate,
-                  icon: const Icon(Icons.date_range_rounded),
-                  label: Text(_date),
-                ),
-                SizedBox(
-                  width: 190,
-                  child: DropdownButtonFormField<String?>(
-                    initialValue: _departmentId,
-                    isExpanded: true,
-                    decoration: const InputDecoration(labelText: 'Department'),
-                    items: [
-                      const DropdownMenuItem<String?>(
-                        value: null,
-                        child: Text('All departments'),
+            LayoutBuilder(
+              builder: (context, filterBox) {
+                // Phones: full-width filters, refresh beside the last one.
+                final narrow = filterBox.maxWidth < 520;
+                final full = filterBox.maxWidth;
+                return Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: narrow ? full : null,
+                      child: OutlinedButton.icon(
+                        onPressed: _pickDate,
+                        icon: const Icon(Icons.date_range_rounded),
+                        label: Text(_date),
                       ),
-                      ...data.filterOptions.departments.map(
-                        (item) => DropdownMenuItem<String?>(
-                          value: item.id,
-                          child: Text(item.name),
+                    ),
+                    SizedBox(
+                      width: narrow ? full : 190,
+                      child: DropdownButtonFormField<String?>(
+                        initialValue: _departmentId,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Department',
                         ),
+                        items: [
+                          const DropdownMenuItem<String?>(
+                            value: null,
+                            child: Text('All departments'),
+                          ),
+                          ...data.filterOptions.departments.map(
+                            (item) => DropdownMenuItem<String?>(
+                              value: item.id,
+                              child: Text(item.name),
+                            ),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          setState(() {
+                            _departmentId = value;
+                            _employeeRecordId = null;
+                            _mapFuture = _load();
+                          });
+                        },
                       ),
-                    ],
-                    onChanged: (value) {
-                      setState(() {
-                        _departmentId = value;
-                        _employeeRecordId = null;
-                        _mapFuture = _load();
-                      });
-                    },
-                  ),
-                ),
-                SizedBox(
-                  width: 210,
-                  child: DropdownButtonFormField<String?>(
-                    initialValue: _employeeRecordId,
-                    isExpanded: true,
-                    decoration: const InputDecoration(labelText: 'Employee'),
-                    items: [
-                      const DropdownMenuItem<String?>(
-                        value: null,
-                        child: Text('All employees'),
-                      ),
-                      ...data.filterOptions.employees.map(
-                        (item) => DropdownMenuItem<String?>(
-                          value: item.employeeRecordId,
-                          child: Text(item.employeeName),
+                    ),
+                    SizedBox(
+                      width: narrow ? full : 210,
+                      child: DropdownButtonFormField<String?>(
+                        initialValue: _employeeRecordId,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Employee',
                         ),
+                        items: [
+                          const DropdownMenuItem<String?>(
+                            value: null,
+                            child: Text('All employees'),
+                          ),
+                          ...data.filterOptions.employees.map(
+                            (item) => DropdownMenuItem<String?>(
+                              value: item.employeeRecordId,
+                              child: Text(item.employeeName),
+                            ),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          setState(() {
+                            _employeeRecordId = value;
+                            _mapFuture = _load();
+                          });
+                        },
                       ),
-                    ],
-                    onChanged: (value) {
-                      setState(() {
-                        _employeeRecordId = value;
-                        _mapFuture = _load();
-                      });
-                    },
-                  ),
-                ),
-                SizedBox(
-                  width: 160,
-                  child: DropdownButtonFormField<String?>(
-                    initialValue: _status,
-                    isExpanded: true,
-                    decoration: const InputDecoration(labelText: 'Status'),
-                    items: [
-                      const DropdownMenuItem<String?>(
-                        value: null,
-                        child: Text('All statuses'),
+                    ),
+                    SizedBox(
+                      width: narrow ? full - 58 : 160,
+                      child: DropdownButtonFormField<String?>(
+                        initialValue: _status,
+                        isExpanded: true,
+                        decoration: const InputDecoration(labelText: 'Status'),
+                        items: [
+                          const DropdownMenuItem<String?>(
+                            value: null,
+                            child: Text('All statuses'),
+                          ),
+                          ...data.filterOptions.statuses.map(
+                            (item) => DropdownMenuItem<String?>(
+                              value: item,
+                              child: Text(item),
+                            ),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          setState(() {
+                            _status = value;
+                            _mapFuture = _load();
+                          });
+                        },
                       ),
-                      ...data.filterOptions.statuses.map(
-                        (item) => DropdownMenuItem<String?>(
-                          value: item,
-                          child: Text(item),
-                        ),
-                      ),
-                    ],
-                    onChanged: (value) {
-                      setState(() {
-                        _status = value;
-                        _mapFuture = _load();
-                      });
-                    },
-                  ),
-                ),
-                IconButton.outlined(
-                  tooltip: 'Refresh map',
-                  onPressed: _reload,
-                  icon: const Icon(Icons.refresh_rounded),
-                ),
-              ],
+                    ),
+                    IconButton.outlined(
+                      tooltip: 'Refresh map',
+                      onPressed: _reload,
+                      icon: const Icon(Icons.refresh_rounded),
+                    ),
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 14),
             Text(
@@ -281,7 +317,9 @@ class _HRAttendanceMapViewState extends ConsumerState<HRAttendanceMapView> {
                         '${formatLocalTime(item.checkInTime)} → ${formatLocalTime(item.checkOutTime)}'
                         '${item.assignedOffice == null ? '' : ' · ${item.assignedOffice}'}',
                       ),
-                      trailing: StatusChip(label: item.geofenceStatus ?? 'Unavailable'),
+                      trailing: StatusChip(
+                        label: item.geofenceStatus ?? 'Unavailable',
+                      ),
                     );
                   }).toList(),
                 ),

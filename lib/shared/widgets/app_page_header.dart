@@ -74,16 +74,53 @@ class AppPageHeader extends StatelessWidget {
             ],
             if (actions.isNotEmpty) ...[
               const SizedBox(height: AppSpacing.md),
-              Wrap(
-                spacing: AppSpacing.sm,
-                runSpacing: AppSpacing.sm,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: actions,
-              ),
+              if (isMobile && actions.length > 1)
+                _mobileActions(context, constraints.maxWidth)
+              else
+                Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: actions,
+                ),
             ],
           ],
         );
       },
+    );
+  }
+
+  /// Phones: equal-width buttons, two per row (one per row on very narrow
+  /// screens), instead of a ragged stack of differently sized buttons.
+  Widget _mobileActions(BuildContext context, double width) {
+    final columns = width >= 340 ? 2 : 1;
+    final itemWidth = ((width - (columns - 1) * AppSpacing.sm) / columns)
+        .floorToDouble();
+    final theme = Theme.of(context);
+    // Tighter horizontal padding so labels fit on one line in half-width
+    // buttons.
+    const padding = WidgetStatePropertyAll(
+      EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    );
+    return Theme(
+      data: theme.copyWith(
+        filledButtonTheme: FilledButtonThemeData(
+          style: (theme.filledButtonTheme.style ?? const ButtonStyle())
+              .copyWith(padding: padding),
+        ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: (theme.outlinedButtonTheme.style ?? const ButtonStyle())
+              .copyWith(padding: padding),
+        ),
+      ),
+      child: Wrap(
+        spacing: AppSpacing.sm,
+        runSpacing: AppSpacing.sm,
+        children: [
+          for (final action in actions)
+            SizedBox(width: itemWidth, child: action),
+        ],
+      ),
     );
   }
 }

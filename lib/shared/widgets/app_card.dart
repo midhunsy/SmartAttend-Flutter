@@ -35,7 +35,9 @@ class AppCard extends StatelessWidget {
         border: Border.all(color: borderColor, width: 1),
         boxShadow: elevation > 0 ? AppShadows.card : null,
       ),
-      child: child,
+      // Transparent Material so ListTiles and ink splashes inside the card
+      // paint above the card colour.
+      child: Material(type: MaterialType.transparency, child: child),
     );
 
     if (onTap != null) {

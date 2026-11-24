@@ -126,10 +126,17 @@ class InfoTileGrid extends StatelessWidget {
             ((availableWidth + AppSpacing.md) / (minTileWidth + AppSpacing.md))
                 .floor();
         if (columns < 1) columns = 1;
+        // Narrow phone cards: two tiles per row instead of a tall stack.
+        if (columns == 1 &&
+            children.length > 1 &&
+            availableWidth >= 2 * 118 + AppSpacing.md) {
+          columns = 2;
+        }
         if (columns > children.length) columns = children.length;
 
         final tileWidth =
-            (availableWidth - (columns - 1) * AppSpacing.md) / columns;
+            ((availableWidth - (columns - 1) * AppSpacing.md) / columns)
+                .floorToDouble();
         return Wrap(
           spacing: AppSpacing.md,
           runSpacing: AppSpacing.md,

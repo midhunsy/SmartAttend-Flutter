@@ -8,6 +8,7 @@ import '../../../shared/widgets/app_kpi_card.dart';
 import '../../../shared/widgets/app_page_header.dart';
 import '../../../shared/widgets/app_state_widgets.dart';
 import '../../../shared/widgets/app_status_chip.dart';
+import '../../../shared/widgets/responsive.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../auth/data/models/auth_user.dart';
 import '../core/employee_validation.dart';
@@ -140,11 +141,9 @@ class _EmployeeScreenState extends ConsumerState<EmployeeScreen> {
         final activeCount =
             directory.employees.where((item) => item.isAccountActive).length;
 
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.xxxl),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+        return PageBody(
+          onRefresh: () async => _reload(),
+          children: [
               AppPageHeader(
                 eyebrow: 'People & Accounts',
                 title: 'Employee Directory',
@@ -304,18 +303,15 @@ class _EmployeeScreenState extends ConsumerState<EmployeeScreen> {
                 style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
               ),
               const SizedBox(height: AppSpacing.md),
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    if (constraints.maxWidth >= 960) {
-                      return _desktopTable(employees, user);
-                    }
-                    return _mobileCards(employees, user);
-                  },
-                ),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  if (constraints.maxWidth >= 960) {
+                    return _desktopTable(employees, user);
+                  }
+                  return _mobileCards(employees, user);
+                },
               ),
-            ],
-          ),
+          ],
         );
       },
     );
@@ -346,9 +342,12 @@ class _EmployeeScreenState extends ConsumerState<EmployeeScreen> {
     return AppCard(
       padding: EdgeInsets.zero,
       child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
         child: DataTable(
           columns: columns,
           headingRowHeight: 48,
+          dataRowMinHeight: 56,
+          dataRowMaxHeight: 76,
           rows: employees.map((employee) {
             return DataRow(
               cells: [
@@ -461,6 +460,9 @@ class _EmployeeScreenState extends ConsumerState<EmployeeScreen> {
       );
     }
     return ListView.builder(
+      shrinkWrap: true,
+      primary: false,
+      physics: const NeverScrollableScrollPhysics(),
       itemCount: employees.length,
       itemBuilder: (context, index) {
         final employee = employees[index];

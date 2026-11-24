@@ -8,6 +8,7 @@ import '../../../shared/widgets/app_kpi_card.dart';
 import '../../../shared/widgets/app_page_header.dart';
 import '../../../shared/widgets/app_state_widgets.dart';
 import '../../../shared/widgets/app_status_chip.dart';
+import '../../../shared/widgets/responsive.dart';
 import '../../attendance/presentation/widgets/attendance_widgets.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../auth/data/models/auth_user.dart';
@@ -138,82 +139,56 @@ class _LeaveAccrualScreenState extends ConsumerState<LeaveAccrualScreen> {
       return const AppLoadingState(message: 'Loading leave accrual controls…');
     }
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.lg,
-        AppSpacing.lg,
-        AppSpacing.lg,
-        0,
-      ),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1200),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              AppPageHeader(
-                eyebrow: 'Leave operations',
-                title: 'Leave Accrual & Balances',
-                subtitle: 'Policy-driven credits, available balances, and approval pipelines.',
-                actions: [
-                  OutlinedButton.icon(
-                    onPressed: _reload,
-                    icon: const Icon(Icons.refresh_rounded, size: 18),
-                    label: const Text('Reload'),
-                  ),
-                ],
-                badges: const [
-                  AppStatusChip(label: 'Live backend data', compact: true),
-                ],
-              ),
-              if (_message.isNotEmpty) ...[
-                const SizedBox(height: AppSpacing.md),
-                AppMessageBanner(
-                  message: _message,
-                  isError: _messageIsError,
-                  onDismiss: () => setState(() => _message = ''),
-                ),
-              ],
-              const SizedBox(height: AppSpacing.lg),
-              if (user.isAdmin)
-                Expanded(
-                  child: DefaultTabController(
-                    length: 2,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          decoration: const BoxDecoration(
-                            border: Border(
-                              bottom: BorderSide(color: AppColors.outline),
-                            ),
-                          ),
-                          child: const TabBar(
-                            labelColor: AppColors.teal,
-                            unselectedLabelColor: AppColors.textMuted,
-                            indicatorColor: AppColors.teal,
-                            tabs: [
-                              Tab(text: 'Overview'),
-                              Tab(text: 'Policy Configuration'),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.md),
-                        Expanded(
-                          child: TabBarView(
-                            children: [_employeeTab(user), _adminTab()],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              else
-                Expanded(child: _employeeTab(user)),
-            ],
+    final header = <Widget>[
+      AppPageHeader(
+        eyebrow: 'Leave operations',
+        title: 'Leave Accrual & Balances',
+        subtitle: 'Policy-driven credits, available balances, and approval pipelines.',
+        actions: [
+          OutlinedButton.icon(
+            onPressed: _reload,
+            icon: const Icon(Icons.refresh_rounded, size: 18),
+            label: const Text('Reload'),
           ),
-        ),
+        ],
+        badges: const [
+          AppStatusChip(label: 'Live backend data', compact: true),
+        ],
       ),
+      if (_message.isNotEmpty) ...[
+        const SizedBox(height: AppSpacing.md),
+        AppMessageBanner(
+          message: _message,
+          isError: _messageIsError,
+          onDismiss: () => setState(() => _message = ''),
+        ),
+      ],
+    ];
+
+    if (user.isAdmin) {
+      return DefaultTabController(
+        length: 2,
+        child: TabbedPage(
+          maxWidth: 1200,
+          header: header,
+          tabs: const [
+            Tab(text: 'Overview'),
+            Tab(text: 'Policy Configuration'),
+          ],
+          children: [
+            SingleChildScrollView(child: _employeeTab(user)),
+            _adminTab(),
+          ],
+        ),
+      );
+    }
+    return PageBody(
+      maxWidth: 1200,
+      children: [
+        ...header,
+        const SizedBox(height: AppSpacing.lg),
+        _employeeTab(user),
+      ],
     );
   }
 
@@ -257,8 +232,7 @@ class _LeaveAccrualScreenState extends ConsumerState<LeaveAccrualScreen> {
           ),
         ),
         const SizedBox(height: AppSpacing.md),
-        Expanded(
-          child: FutureBuilder<LeaveOverview>(
+        FutureBuilder<LeaveOverview>(
             future: _overviewFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
@@ -272,7 +246,6 @@ class _LeaveAccrualScreenState extends ConsumerState<LeaveAccrualScreen> {
               return _employeeContent(snapshot.data!);
             },
           ),
-        ),
       ],
     );
   }
@@ -286,6 +259,8 @@ class _LeaveAccrualScreenState extends ConsumerState<LeaveAccrualScreen> {
       ..sort((a, b) => b.startDate.compareTo(a.startDate));
 
     return SingleChildScrollView(
+      primary: false,
+      physics: const NeverScrollableScrollPhysics(),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final compact = constraints.maxWidth < 620;
@@ -684,6 +659,7 @@ class _LeaveAccrualScreenState extends ConsumerState<LeaveAccrualScreen> {
                         _formField(
                           'Policy',
                           DropdownButtonFormField<String>(
+                            isExpanded: true,
                             key: ValueKey(_selectedPolicyId(catalog)),
                             initialValue: _selectedPolicyId(catalog),
                             decoration: _inputDecoration(),
@@ -793,6 +769,7 @@ class _LeaveAccrualScreenState extends ConsumerState<LeaveAccrualScreen> {
                           _formField(
                             'Accrual Method',
                             DropdownButtonFormField<String>(
+                              isExpanded: true,
                               key: ValueKey(_accrualMethod),
                               initialValue: _accrualMethod,
                               decoration: _inputDecoration(),
@@ -846,6 +823,7 @@ class _LeaveAccrualScreenState extends ConsumerState<LeaveAccrualScreen> {
                           _formField(
                             'Accrual Timing',
                             DropdownButtonFormField<String>(
+                              isExpanded: true,
                               key: ValueKey(_accrualTiming),
                               initialValue: _accrualTiming,
                               decoration: _inputDecoration(),
@@ -867,6 +845,7 @@ class _LeaveAccrualScreenState extends ConsumerState<LeaveAccrualScreen> {
                           _formField(
                             'Eligibility',
                             DropdownButtonFormField<String>(
+                              isExpanded: true,
                               key: ValueKey(_eligibility),
                               initialValue: _eligibility,
                               decoration: _inputDecoration(),

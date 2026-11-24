@@ -164,8 +164,9 @@ class _AttendanceMapViewState extends State<AttendanceMapView> {
                     }),
                   ],
                 ),
-                const SimpleAttributionWidget(
-                  source: Text('OpenStreetMap contributors'),
+                const Align(
+                  alignment: Alignment.bottomRight,
+                  child: MapAttribution(),
                 ),
               ],
             ),
@@ -212,6 +213,30 @@ class _AttendanceMapViewState extends State<AttendanceMapView> {
             child: Icon(icon, color: color, size: 22),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Compact OpenStreetMap attribution that ellipsizes on narrow maps instead
+/// of overflowing (flutter_map's SimpleAttributionWidget uses a fixed Row).
+class MapAttribution extends StatelessWidget {
+  const MapAttribution({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.all(6),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: const Text(
+        '© OpenStreetMap contributors',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(fontSize: 10, color: Color(0xFF334155)),
       ),
     );
   }

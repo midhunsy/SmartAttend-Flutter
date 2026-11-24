@@ -1,3 +1,5 @@
+import '../../attendance/presentation/widgets/attendance_map_view.dart'
+    show MapAttribution;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -84,8 +86,9 @@ class OrganizationMapView extends StatelessWidget {
                     );
                   }).toList(),
                 ),
-                const SimpleAttributionWidget(
-                  source: Text('OpenStreetMap contributors'),
+                const Align(
+                  alignment: Alignment.bottomRight,
+                  child: MapAttribution(),
                 ),
               ],
             ),

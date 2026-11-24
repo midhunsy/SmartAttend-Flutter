@@ -7,6 +7,7 @@ import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_page_header.dart';
 import '../../../shared/widgets/app_state_widgets.dart';
 import '../../../shared/widgets/app_status_chip.dart';
+import '../../../shared/widgets/responsive.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../auth/data/models/auth_user.dart';
 import '../core/geo_utils.dart';
@@ -287,11 +288,9 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
 
         return DefaultTabController(
           length: tabs.length,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.xxxl),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+          child: TabbedPage(
+            tabs: tabs,
+            header: [
                 AppPageHeader(
                   eyebrow: 'Workforce tracking',
                   title: 'Attendance & Time Tracker',
@@ -312,32 +311,14 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
                   onDismiss: () => setState(() => _actionMessage = ''),
                 ),
                 if (_actionMessage.isNotEmpty) const SizedBox(height: AppSpacing.md),
-                Container(
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: AppRadius.borderMd,
-                    border: Border.fromBorderSide(BorderSide(color: AppColors.outline)),
-                  ),
-                  child: TabBar(
-                    tabs: tabs,
-                    isScrollable: true,
-                    tabAlignment: TabAlignment.start,
-                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                Expanded(
-                  child: TabBarView(
-                    children: [
-                      _todayTab(bundle, user, focusRecord, office),
-                      _historyTab(bundle, user),
-                      _regularizationTab(bundle, user),
-                      if (user.canViewTeamMap) const HRAttendanceMapView(),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+            ],
+            children: [
+              _todayTab(bundle, user, focusRecord, office),
+              _historyTab(bundle, user),
+              _regularizationTab(bundle, user),
+              if (user.canViewTeamMap)
+                const SingleChildScrollView(child: HRAttendanceMapView()),
+            ],
           ),
         );
       },
@@ -420,7 +401,11 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Wrap(
+                // Equal-width punch buttons: stacked full-width on phones,
+                // side by side on wider screens.
+                ResponsiveGrid(
+                  minItemWidth: 150,
+                  maxColumns: 3,
                   spacing: AppSpacing.md,
                   runSpacing: AppSpacing.md,
                   children: [
@@ -545,6 +530,8 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
     }
 
     return SingleChildScrollView(
+      // Room for the first field's floating label.
+      padding: const EdgeInsets.only(top: AppSpacing.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

@@ -477,6 +477,7 @@ class _OrganizationScreenState extends ConsumerState<OrganizationScreen> {
     ValueChanged<String?> onTargetChanged,
   ) {
     return DropdownButtonFormField<String>(
+      isExpanded: true,
       initialValue: value,
       decoration: const InputDecoration(labelText: 'Scope'),
       items: shiftAssignmentScopes
@@ -505,6 +506,7 @@ class _OrganizationScreenState extends ConsumerState<OrganizationScreen> {
       );
     }
     return DropdownButtonFormField<String>(
+      isExpanded: true,
       initialValue: options.containsKey(scopeId) ? scopeId : null,
       decoration: InputDecoration(labelText: scopeType == 'department' ? 'Department' : 'Employee'),
       items: options.entries
@@ -827,13 +829,15 @@ class _OrganizationScreenState extends ConsumerState<OrganizationScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
+                            Wrap(
+                              spacing: AppSpacing.sm,
+                              runSpacing: AppSpacing.xxs,
+                              crossAxisAlignment: WrapCrossAlignment.center,
                               children: [
                                 Text(
                                   office.name,
                                   style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
                                 ),
-                                const SizedBox(width: AppSpacing.sm),
                                 AppStatusChip(
                                   label: office.isActive ? 'Active' : 'Inactive',
                                   compact: true,
@@ -1136,6 +1140,7 @@ class _OrganizationScreenState extends ConsumerState<OrganizationScreen> {
                     SizedBox(
                       width: fieldWidth,
                       child: DropdownButtonFormField<String>(
+                        isExpanded: true,
                         initialValue: shiftId,
                         decoration: const InputDecoration(labelText: 'Shift'),
                         items: data.shifts
@@ -1289,6 +1294,7 @@ class _OrganizationScreenState extends ConsumerState<OrganizationScreen> {
                     SizedBox(
                       width: fieldWidth,
                       child: DropdownButtonFormField<String>(
+                        isExpanded: true,
                         initialValue: _breakType,
                         decoration: const InputDecoration(labelText: 'Break type'),
                         items: lunchBreakTypes
