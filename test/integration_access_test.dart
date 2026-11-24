@@ -1,7 +1,11 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:smartattend_flutter/app/app_shell.dart';
 import 'package:smartattend_flutter/app/router.dart';
 import 'package:smartattend_flutter/core/config/app_config.dart';
+import 'package:smartattend_flutter/features/auth/application/auth_controller.dart';
 import 'package:smartattend_flutter/features/auth/data/models/auth_user.dart';
 
 void main() {
@@ -86,6 +90,103 @@ void main() {
       }
     }
   });
+
+  test('expense route and menu are available to company roles', () {
+    for (final role in [
+      'Company Admin',
+      'HR',
+      'HOD',
+      'Manager',
+      'Responsible Person',
+      'Employee',
+    ]) {
+      final user = _user(role);
+      expect(canAccessRoute('/expenses', user), isTrue, reason: role);
+      expect(
+        appNavItemsFor(user).any((item) => item.path == '/expenses'),
+        isTrue,
+        reason: role,
+      );
+    }
+    expect(canAccessRoute('/expenses', _user('Super Admin')), isFalse);
+  });
+
+  test('expenses stay in the visible primary mobile navigation tiles', () {
+    for (final role in [
+      'Company Admin',
+      'HR',
+      'HOD',
+      'Manager',
+      'Responsible Person',
+      'Employee',
+    ]) {
+      final primary = primaryMobileNavItems(appNavItemsFor(_user(role)));
+      expect(primary.map((item) => item.path), contains('/expenses'), reason: role);
+      expect(primary.length, 4, reason: role);
+      expect(primary.indexOf(primary.firstWhere((item) => item.path == '/expenses')), 3, reason: role);
+    }
+  });
+
+  testWidgets('phone-width navigation shows and opens Expenses', (tester) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final router = GoRouter(
+      initialLocation: '/dashboard',
+      routes: [
+        ShellRoute(
+          builder: (context, state, child) => AppShell(child: child),
+          routes: [
+            GoRoute(
+              path: '/dashboard',
+              builder: (context, state) => const Text('dashboard-screen'),
+            ),
+            GoRoute(
+              path: '/expenses',
+              builder: (context, state) => const Text('expense-screen'),
+            ),
+          ],
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authControllerProvider.overrideWith(
+            () => _SignedInAuthController(_user('Employee')),
+          ),
+        ],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final expenseTile = find.descendant(
+      of: find.byType(InkWell),
+      matching: find.text('Expenses'),
+    );
+    expect(expenseTile, findsOneWidget);
+
+    await tester.tap(expenseTile);
+    await tester.pumpAndSettle();
+    expect(find.text('expense-screen'), findsOneWidget);
+  });
+}
+
+class _SignedInAuthController extends AuthController {
+  _SignedInAuthController(this._user);
+
+  final AuthUser _user;
+
+  @override
+  AuthState build() {
+    return AuthState(status: AuthStatus.authenticated, user: _user);
+  }
 }
 
 AuthUser _user(String role) {

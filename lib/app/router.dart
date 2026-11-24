@@ -11,9 +11,12 @@ import '../features/auth/presentation/splash_screen.dart';
 import '../features/attendance/presentation/attendance_screen.dart';
 import '../features/dashboard/presentation/dashboard_screen.dart';
 import '../features/employees/presentation/employee_screen.dart';
+import '../features/expenses/presentation/expense_screen.dart';
 import '../features/leave/presentation/leave_screen.dart';
+import '../features/leave_accrual/presentation/leave_accrual_screen.dart';
 import '../features/organization/presentation/organization_screen.dart';
 import '../features/reports/presentation/reports_screen.dart';
+import '../features/shift_change/presentation/shift_change_screen.dart';
 import 'app_shell.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -86,6 +89,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/leaves',
             builder: (context, state) => const LeaveScreen(),
+          ),
+          GoRoute(
+            path: '/shift-changes',
+            builder: (context, state) => const ShiftChangeScreen(),
+          ),
+          GoRoute(
+            path: '/expenses',
+            builder: (context, state) => const ExpenseScreen(),
+          ),
+          GoRoute(
+            path: '/leave-ledger',
+            builder: (context, state) => const LeaveAccrualScreen(),
           ),
           GoRoute(
             path: '/approvals',

@@ -58,6 +58,27 @@ List<AppNavItem> appNavItemsFor(AuthUser user) {
       icon: Icons.event_available_outlined,
       activeIcon: Icons.event_available_rounded,
     ),
+    const AppNavItem(
+      path: '/shift-changes',
+      label: 'Shift Changes',
+      shortLabel: 'Shifts',
+      icon: Icons.swap_horiz_outlined,
+      activeIcon: Icons.swap_horiz_rounded,
+    ),
+    const AppNavItem(
+      path: '/expenses',
+      label: 'Expenses',
+      shortLabel: 'Expenses',
+      icon: Icons.receipt_long_outlined,
+      activeIcon: Icons.receipt_long_rounded,
+    ),
+    const AppNavItem(
+      path: '/leave-ledger',
+      label: 'Leave Ledger',
+      shortLabel: 'Ledger',
+      icon: Icons.account_balance_wallet_outlined,
+      activeIcon: Icons.account_balance_wallet_rounded,
+    ),
   ];
   if (user.canApprove) {
     items.add(
@@ -96,6 +117,29 @@ List<AppNavItem> appNavItemsFor(AuthUser user) {
   return items;
 }
 
+List<AppNavItem> primaryMobileNavItems(List<AppNavItem> items) {
+  if (items.length <= 4) return List.unmodifiable(items);
+
+  final primary = <AppNavItem>[];
+  for (final item in items) {
+    if (item.path == '/expenses') {
+      if (!primary.any((existing) => existing.path == item.path)) {
+        primary.add(item);
+      }
+    } else if (primary.length < 3) {
+      primary.add(item);
+    }
+    if (primary.length == 4) break;
+  }
+  for (final item in items) {
+    if (primary.length == 4) break;
+    if (!primary.any((existing) => existing.path == item.path)) {
+      primary.add(item);
+    }
+  }
+  return List.unmodifiable(primary);
+}
+
 class AppShell extends ConsumerWidget {
   const AppShell({super.key, required this.child});
 
@@ -115,6 +159,10 @@ class AppShell extends ConsumerWidget {
     var selectedIndex = items.indexWhere((item) => item.path == location);
     if (selectedIndex < 0) selectedIndex = 0;
     final selected = items[selectedIndex];
+    final primaryItems = primaryMobileNavItems(items);
+    final hasMoreSections = primaryItems.length < items.length;
+    final primarySelectedIndex =
+        primaryItems.indexWhere((item) => item.path == location);
 
     Future<void> signOut() async {
       await ref.read(authControllerProvider.notifier).logout();
@@ -209,6 +257,61 @@ class AppShell extends ConsumerWidget {
       );
     }
 
+    void showAllSectionsSheet() {
+      showModalBottomSheet<void>(
+        context: context,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+        ),
+        builder: (sheetContext) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'All sections',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: items.length,
+                    itemBuilder: (context, index) {
+                      final item = items[index];
+                      final isSelected = item.path == location;
+                      return ListTile(
+                        leading: Icon(
+                          isSelected ? item.activeIcon : item.icon,
+                          color: isSelected ? AppColors.teal : AppColors.textMuted,
+                        ),
+                        title: Text(item.label),
+                        selected: isSelected,
+                        selectedTileColor: AppColors.tealLight,
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: AppRadius.borderMd,
+                        ),
+                        onTap: () {
+                          Navigator.of(sheetContext).pop();
+                          if (!isSelected) context.go(item.path);
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Row(
@@ -246,9 +349,9 @@ class AppShell extends ConsumerWidget {
           ],
         ),
         actions: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final isNarrow = constraints.maxWidth < 300;
+          Builder(
+            builder: (context) {
+              final isNarrow = MediaQuery.sizeOf(context).width < 600;
               return Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -357,9 +460,6 @@ class AppShell extends ConsumerWidget {
               );
             }
 
-            // Mobile Navigation: Horizontal scrollable bottom bar if items > 5
-            final useScrollableBottomBar = items.length > 5;
-
             return Column(
               children: [
                 Expanded(child: child),
@@ -375,62 +475,37 @@ class AppShell extends ConsumerWidget {
                       ),
                     ],
                   ),
-                  child: useScrollableBottomBar
-                      ? SizedBox(
-                          height: 72,
-                          child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
+                  child: hasMoreSections
+                      ? Padding(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.sm,
+                            horizontal: AppSpacing.xs,
                             vertical: AppSpacing.xs,
                           ),
                           child: Row(
-                            children: items.asMap().entries.map((entry) {
-                              final index = entry.key;
-                              final item = entry.value;
-                              final isSelected = index == selectedIndex;
-                              return SizedBox(
-                                width: 84,
-                                child: Material(
-                                  color: isSelected ? AppColors.tealLight : Colors.transparent,
-                                  borderRadius: AppRadius.borderMd,
-                                  child: InkWell(
+                            children: [
+                              ...primaryItems.map(
+                                (item) => Expanded(
+                                  child: _mobileNavTile(
+                                    icon: item.icon,
+                                    activeIcon: item.activeIcon,
+                                    label: item.shortLabel,
+                                    selected: item.path == location,
                                     onTap: () => context.go(item.path),
-                                    borderRadius: AppRadius.borderMd,
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: AppSpacing.xs,
-                                        vertical: AppSpacing.sm,
-                                      ),
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            isSelected ? item.activeIcon : item.icon,
-                                            size: 20,
-                                            color: isSelected ? AppColors.teal : AppColors.textMuted,
-                                          ),
-                                          const SizedBox(height: AppSpacing.xxs),
-                                          Text(
-                                            item.shortLabel,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                                              color: isSelected ? AppColors.teal : AppColors.textSecondary,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
                                   ),
                                 ),
-                              );
-                             }).toList(),
-                           ),
+                              ),
+                              Expanded(
+                                child: _mobileNavTile(
+                                  icon: Icons.more_horiz_rounded,
+                                  activeIcon: Icons.more_horiz_rounded,
+                                  label: 'More',
+                                  selected: primarySelectedIndex < 0,
+                                  onTap: showAllSectionsSheet,
+                                ),
+                              ),
+                            ],
                           ),
-                         )
+                        )
                       : items.length < 2
                           ? Padding(
                               padding: const EdgeInsets.symmetric(
@@ -474,6 +549,50 @@ class AppShell extends ConsumerWidget {
               ],
             );
           },
+        ),
+      ),
+    );
+  }
+
+  Widget _mobileNavTile({
+    required IconData icon,
+    required IconData activeIcon,
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: selected ? AppColors.tealLight : Colors.transparent,
+      borderRadius: AppRadius.borderMd,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadius.borderMd,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.xxs,
+            vertical: AppSpacing.sm,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                selected ? activeIcon : icon,
+                size: 20,
+                color: selected ? AppColors.teal : AppColors.textMuted,
+              ),
+              const SizedBox(height: AppSpacing.xxs),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  color: selected ? AppColors.teal : AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
