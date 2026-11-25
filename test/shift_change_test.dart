@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:smartattend_flutter/core/network/api_client.dart';
 import 'package:smartattend_flutter/features/auth/application/auth_controller.dart';
 import 'package:smartattend_flutter/features/auth/data/models/auth_user.dart';
 import 'package:smartattend_flutter/features/organization/data/models/organization_models.dart';
@@ -153,9 +154,16 @@ Map<String, dynamic> _bodyOf(RequestOptions options) {
   return <String, dynamic>{};
 }
 
-ShiftChangeRepository _repositoryWithResponse(_FakeAdapter adapter) {
+ShiftChangeRepository _repositoryWithResponse(
+  _FakeAdapter adapter, {
+  Future<String?> Function()? tokenReader,
+}) {
   final dio = Dio(BaseOptions(baseUrl: 'https://example.test'))
     ..httpClientAdapter = adapter;
+  final reader = tokenReader;
+  if (reader != null) {
+    dio.interceptors.add(AuthTokenInterceptor(reader));
+  }
   return ShiftChangeRepository(dio);
 }
 
@@ -400,6 +408,36 @@ void main() {
         'startDate': '2026-11-24',
         'endDate': '2026-11-25',
         'reason': 'Night coverage',
+      });
+    });
+
+    test('submits to the exact endpoint with the bearer token', () async {
+      final adapter = _FakeAdapter({
+        'requestId': 'req-2',
+        'status': 'Pending',
+        'conflicts': <String>[],
+      });
+      final repository = _repositoryWithResponse(
+        adapter,
+        tokenReader: () async => 'shift-change-token',
+      );
+
+      await repository.submitRequest(
+        requestedShiftId: 'shift-2',
+        startDate: '2026-12-01',
+        endDate: '2026-12-02',
+        reason: 'Coverage request',
+      );
+
+      final request = adapter.requests.single;
+      expect(request.method, 'POST');
+      expect(request.uri.toString(), 'https://example.test/api/shift-change-requests');
+      expect(request.headers['Authorization'], 'Bearer shift-change-token');
+      expect(_bodyOf(request), {
+        'requestedShiftId': 'shift-2',
+        'startDate': '2026-12-01',
+        'endDate': '2026-12-02',
+        'reason': 'Coverage request',
       });
     });
 
